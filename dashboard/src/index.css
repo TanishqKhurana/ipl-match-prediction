@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #07080d;
+  --bg-secondary: #0f1018;
+  --bg-card: #111220;
+  --bg-card-hover: #161728;
+  --border: #1e1f2e;
+  --border-light: #2a2b3d;
+  --text-primary: #e8eaf0;
+  --text-secondary: #8b8fa8;
+  --text-muted: #4a4d60;
+  --accent-gold: #F59E0B;
+  --accent-blue: #6366F1;
+  --accent-green: #10B981;
+  --accent-red: #EF4444;
+  --accent-purple: #A78BFA;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 4px; background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
