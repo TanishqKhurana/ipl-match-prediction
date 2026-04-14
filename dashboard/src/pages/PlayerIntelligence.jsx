@@ -7,18 +7,20 @@ import {
 const API = 'http://127.0.0.1:8000'
 
 const TEAM_COLORS = {
-  'Royal Challengers Bengaluru': '#c41e3a',
+  'Royal Challengers Bengaluru': '#9c2121',
   'Mumbai Indians': '#004ba0',
   'Chennai Super Kings': '#f9cd05',
   'Kolkata Knight Riders': '#521ca2',
   'Delhi Capitals': '#004c93',
   'Sunrisers Hyderabad': '#f26522',
-  'Punjab Kings': '#ed1f27',
+  'Punjab Kings': '#e40a44',
   'Rajasthan Royals': '#e50ec5',
   'Gujarat Titans': '#1c2951',
   'Lucknow Super Giants': '#a2d9f7',
   'Rising Pune Supergiant': '#7e1e5d',
   'Deccan Chargers': '#E4A11B',
+  'Retired': '#6b7280',
+  'Unsold': '#ff0000',
 }
 const TEAM_LOGOS = {
   'Royal Challengers Bengaluru': '/logos/RCB_logo.svg',
@@ -31,6 +33,8 @@ const TEAM_LOGOS = {
   'Rajasthan Royals': '/logos/RR_logo.svg',
   'Gujarat Titans': '/logos/GT_logo.svg',
   'Lucknow Super Giants': '/logos/LSG_logo.svg',
+  'Retired': '/logos/Retired.svg',
+  'Unsold': '/logos/Unsold.svg',
 }
 const TEAM_ABBR = {
   'Royal Challengers Bengaluru': 'RCB',
@@ -43,6 +47,8 @@ const TEAM_ABBR = {
   'Rajasthan Royals': 'RR',
   'Gujarat Titans': 'GT',
   'Lucknow Super Giants': 'LSG',
+  'Retired': 'RET',
+  'Unsold': 'UNSL',
 }
 
 const TEAM_ABBR_COLORS = {
@@ -51,6 +57,7 @@ const TEAM_ABBR_COLORS = {
   PBKS: '#ed1f27', RR: '#ea14bb', GT: '#435489',
   LSG: '#a2d9f7', RPS: '#743458', DC2: '#191670',
   PWI: '#6b3fa0', GL: '#e87722', KTK: '#fc6f04',
+  
 }
 
 const PLAYER_PHOTOS = {
@@ -215,7 +222,7 @@ function LandingPage({ onSearch }) {
         </div>
       </div>
 
-      <div style={{ width: '100%', maxWidth: '560px', position: 'relative', animation: 'fadeIn 0.6s ease 0.1s both' }}>
+        <div style={{ width: '100%', maxWidth: '560px', position: 'relative', zIndex: 10, animation: 'fadeIn 0.6s ease 0.1s both' }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: '12px',
           background: 'var(--bg-card)',
@@ -298,7 +305,7 @@ function LandingPage({ onSearch }) {
       </div>
 
       <div style={{ marginTop: '64px', display: 'flex', gap: '48px', animation: 'fadeIn 0.6s ease 0.3s both' }}>
-        {[['704', 'PLAYERS'], ['278K+', 'DELIVERIES'], ['18', 'SEASONS'], ['2008-2025', 'COVERAGE']].map(function(item) {
+        {[['761', 'PLAYERS'], ['278K+', 'DELIVERIES'], ['18', 'SEASONS'], ['2008-2025', 'COVERAGE']].map(function(item) {
           return (
             <div key={item[1]} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'Rajdhani, sans-serif' }}>{item[0]}</div>
@@ -529,7 +536,7 @@ function PlayerProfile({ playerName, onBack }) {
         background: 'var(--bg-secondary)', borderRadius: '10px',
         padding: '4px', width: 'fit-content'
       }}>
-        {[['overview', 'Overview'], ['venues', 'Venues'], ['prediction', 'Prediction']].map(function(item) {
+        {[['overview', 'Overview'], ['venues', 'Venues']].map(function(item) {
           const isActive = activeTab === item[0]
           return (
             <button key={item[0]} className="tab-btn" onClick={function() { setActiveTab(item[0]) }}
@@ -624,8 +631,8 @@ function PlayerProfile({ playerName, onBack }) {
 
       {/* VENUES */}
       {activeTab === 'venues' && (
-        <div className="fu" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <SectionTitle>VENUE PERFORMANCE</SectionTitle>
+          <div className="fu" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <SectionTitle>CURRENT SEASON VENUES · RANKED</SectionTitle>
           {player.venueStats && player.venueStats.length > 0 ? (
             player.venueStats.map(function(v, i) {
               const typeColor = v.type === 'happy' ? 'var(--accent-green)' : v.type === 'bogey' ? 'var(--accent-red)' : 'var(--text-muted)'
@@ -634,57 +641,72 @@ function PlayerProfile({ playerName, onBack }) {
                 <div key={i} style={{
                   background: 'var(--bg-card)', border: '1px solid var(--border)',
                   borderRadius: '10px', padding: '16px 20px',
-                  display: 'grid', gridTemplateColumns: '200px 1fr 80px',
-                  gap: '16px', alignItems: 'center', borderLeft: '3px solid ' + typeColor
+                  display: 'grid', gridTemplateColumns: '44px 220px 1fr',
+                  gap: '24px', alignItems: 'center', borderLeft: '3px solid ' + typeColor,
+                  minHeight: '80px'
                 }}>
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    background: i === 0 ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
+                    border: '1px solid ' + (i === 0 ? 'var(--accent-gold)' : 'var(--border)'),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '14px', fontWeight: 700,
+                    color: i === 0 ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                    fontFamily: 'Rajdhani, sans-serif'
+                  }}>
+                    #{i + 1}
+                  </div>
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{v.venue}</div>
                     <div style={{ fontSize: '11px', color: typeColor, marginTop: '3px' }}>{typeLabel}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
+                  <div style={{
+                    display: 'flex', gap: '36px', flexWrap: 'nowrap',
+                    alignItems: 'center', justifyContent: 'center'
+                  }}>
                     {player.isBowler ? (
                       <>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>MATCHES</div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif' }}>{v.matches}</div>
+                        <div style={{ minWidth: '64px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>MATCHES</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--text-primary)' }}>{v.matches}</div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>WICKETS</div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-red)', fontFamily: 'Rajdhani, sans-serif' }}>{v.wickets}</div>
+                        <div style={{ minWidth: '64px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>WICKETS</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-red)', fontFamily: 'Rajdhani, sans-serif' }}>{v.wickets}</div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ECONOMY</div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-gold)', fontFamily: 'Rajdhani, sans-serif' }}>{v.economy}</div>
+                        <div style={{ minWidth: '64px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>ECONOMY</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-gold)', fontFamily: 'Rajdhani, sans-serif' }}>{v.economy}</div>
                         </div>
                       </>
                     ) : (
                       <>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>INNINGS</div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif' }}>{v.innings}</div>
+                        <div style={{ minWidth: '64px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>INNINGS</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--text-primary)' }}>{v.innings}</div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>RUNS</div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-gold)', fontFamily: 'Rajdhani, sans-serif' }}>{v.runs}</div>
+                        <div style={{ minWidth: '64px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>RUNS</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-gold)', fontFamily: 'Rajdhani, sans-serif' }}>{v.runs}</div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>AVG</div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif' }}>{v.avg}</div>
+                        <div style={{ minWidth: '64px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>AVG</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--text-primary)' }}>{v.avg}</div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>SR</div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif' }}>{v.sr}</div>
+                        <div style={{ minWidth: '64px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>SR</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--text-primary)' }}>{v.sr}</div>
+                        </div>
+                        <div style={{ minWidth: '80px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: '4px' }}>
+                            HS {v.hs_balls ? '(' + v.hs_balls + 'b)' : ''}
+                          </div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-purple)', fontFamily: 'Rajdhani, sans-serif' }}>
+                            {v.hs ? (v.hs + (v.hs_notout ? '*' : '')) : '—'}
+                          </div>
                         </div>
                       </>
                     )}
-                  </div>
-                  <div>
-                    <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: '3px', background: typeColor,
-                        width: Math.min(100, player.isBowler ? (10 - v.economy) / 5 * 100 : v.avg / 60 * 100) + '%'
-                      }} />
-                    </div>
                   </div>
                 </div>
               )

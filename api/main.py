@@ -33,7 +33,74 @@ if 'avg' in venue_stats.columns:
 # Load model
 with open('../models/performance_predictor.pkl', 'rb') as f:
     gbm = pickle.load(f)
+# ── CURRENT-SEASON VENUES (13 grounds in use this IPL) ────────
+# Each entry holds the canonical display name, the home team, and a list
+# of lowercase substrings used to match variants in `venue_short`.
+# IMPORTANT: patterns must be specific enough not to cross-match. e.g.
+# 'delhi' alone would also hit nothing useful so we use 'arun jaitley'
+# and 'feroz shah kotla' to merge the Delhi variants.
+CURRENT_VENUES = [
+    {'name': 'Narendra Modi Stadium',            'city': 'Ahmedabad',
+     'home': 'Gujarat Titans',
+     'patterns': ['narendra modi', 'motera']},
+    {'name': 'M. Chinnaswamy Stadium',           'city': 'Bengaluru',
+     'home': 'Royal Challengers Bengaluru',
+     'patterns': ['chinnaswamy']},
+    {'name': 'MA Chidambaram Stadium',           'city': 'Chennai',
+     'home': 'Chennai Super Kings',
+     'patterns': ['chidambaram', 'chepauk']},
+    {'name': 'Arun Jaitley Stadium',             'city': 'Delhi',
+     'home': 'Delhi Capitals',
+     'patterns': ['arun jaitley', 'feroz shah kotla']},
+    {'name': 'ACA Stadium',                      'city': 'Guwahati',
+     'home': 'Rajasthan Royals',
+     'patterns': ['guwahati', 'barsapara']},
+    {'name': 'Rajiv Gandhi International Stadium','city': 'Hyderabad',
+     'home': 'Sunrisers Hyderabad',
+     'patterns': ['rajiv gandhi', 'uppal']},
+    {'name': 'Sawai Mansingh Stadium',           'city': 'Jaipur',
+     'home': 'Rajasthan Royals',
+     'patterns': ['sawai mansingh', 'jaipur']},
+    {'name': 'Eden Gardens',                     'city': 'Kolkata',
+     'home': 'Kolkata Knight Riders',
+     'patterns': ['eden gardens']},
+    {'name': 'BRSABV Ekana Stadium',             'city': 'Lucknow',
+     'home': 'Lucknow Super Giants',
+     'patterns': ['ekana', 'brsabv']},
+    {'name': 'Wankhede Stadium',                 'city': 'Mumbai',
+     'home': 'Mumbai Indians',
+     'patterns': ['wankhede']},
+    {'name': 'Maharaja Yadavindra Singh Stadium','city': 'Mullanpur',
+     'home': 'Punjab Kings',
+     'patterns': ['mullanpur', 'maharaja yadavindra', 'new chandigarh']},
+    {'name': 'HPCA Stadium',                     'city': 'Dharamsala',
+     'home': 'Punjab Kings',
+     'patterns': ['dharamsala', 'hpca']},
+    {'name': 'Shaheed Veer Narayan Singh Stadium','city': 'Raipur',
+     'home': 'Royal Challengers Bengaluru',
+     'patterns': ['raipur', 'shaheed veer narayan']},
+]
+def _match_canonical_venue(venue_short_str):
+    """Return the canonical-venue dict whose pattern matches, else None."""
+    if not isinstance(venue_short_str, str):
+        return None
+    v = venue_short_str.lower()
+    for cv in CURRENT_VENUES:
+        for p in cv['patterns']:
+            if p in v:
+                return cv
+    return None
 
+def _match_canonical_venue(venue_short_str):
+    """Return the canonical-venue dict whose pattern matches, else None."""
+    if not isinstance(venue_short_str, str):
+        return None
+    v = venue_short_str.lower()
+    for cv in CURRENT_VENUES:
+        for p in cv['patterns']:
+            if p in v:
+                return cv
+    return None
 master['date'] = pd.to_datetime(master['date'])
 batting_features['date'] = pd.to_datetime(batting_features['date'])
 
@@ -153,34 +220,110 @@ def get_season_stats(player_name, is_bowler=False):
 
 
 def get_venue_stats(player_name, is_bowler=False):
-    result = []
+    """
+    Player's performance at the 13 current-IPL venues only.
+    Merges multi-name variants (e.g. 'Feroz Shah Kotla' + 'Arun Jaitley Stadium')
+    into one row per canonical venue, then ranks venues best → worst.
+      - Batters: ranked by `venue_score` (weighted by innings when merging)
+      - Bowlers: ranked by wickets − 0.5 × economy
+    """
     if is_bowler:
-        venues = venue_bowl_stats[venue_bowl_stats['bowler'] == player_name]
-        for _, row in venues.nlargest(6, 'wickets').iterrows():
-            t = 'happy' if row.get('is_happy_ground') else \
-                'bogey' if row.get('is_bogey_ground') else 'neutral'
-            result.append({
-                'venue': str(row['venue_short']),
-                'matches': int(row['matches']),
-                'wickets': int(row['wickets']),
-                'economy': round(float(row['economy']), 2),
-                'type': t
-            })
+        src = venue_bowl_stats[venue_bowl_stats['bowler'] == player_name].copy()
     else:
-        venues = venue_stats[venue_stats['batsman'] == player_name]
-        for _, row in venues.nlargest(6, 'runs').iterrows():
-            t = 'happy' if row.get('is_happy_ground') else \
-                'bogey' if row.get('is_bogey_ground') else 'neutral'
-            result.append({
-                'venue': str(row['venue_short']),
-                'innings': int(row['innings']),
-                'runs': int(row['runs']),
-                'avg': round(float(row['venue_avg']), 2),
-                'sr': round(float(row['venue_sr']), 2),
-                'type': t
-            })
-    return result
+        src = venue_stats[venue_stats['batsman'] == player_name].copy()
 
+    if len(src) == 0:
+        return []
+
+    # Tag each source row with the canonical venue it belongs to (if any)
+    src['_cv'] = src['venue_short'].apply(_match_canonical_venue)
+    src = src[src['_cv'].notna()]
+    if len(src) == 0:
+        return []
+
+    result = []
+    for cv in CURRENT_VENUES:
+        rows = src[src['_cv'].apply(lambda c: c is not None and c['name'] == cv['name'])]
+        if len(rows) == 0:
+            continue  # player has never played at this venue
+
+        display_name = f"{cv['name']}, {cv['city']}"
+
+        if is_bowler:
+            matches  = int(rows['matches'].sum())
+            wickets  = int(rows['wickets'].sum())
+            total_m  = float(rows['matches'].sum())
+            # weighted mean economy, weighted by matches (proxy for overs bowled)
+            economy  = float((rows['economy'] * rows['matches']).sum() / max(total_m, 1))
+            is_happy = bool(rows.get('is_happy_ground', pd.Series([False])).any())
+            is_bogey = bool(rows.get('is_bogey_ground', pd.Series([False])).any())
+            t = 'happy' if is_happy else 'bogey' if is_bogey else 'neutral'
+            score = wickets - (economy * 0.5)
+            result.append({
+                'venue': display_name,
+                'matches': matches,
+                'wickets': wickets,
+                'economy': round(economy, 2),
+                'type': t,
+                '_score': score,
+            })
+        else:
+            innings   = int(rows['innings'].sum())
+            runs      = int(rows['runs'].sum())
+            total_inn = float(rows['innings'].sum())
+            # weighted means of pre-aggregated stats, weighted by innings
+            avg = float((rows['venue_avg']  * rows['innings']).sum() / max(total_inn, 1))
+            sr  = float((rows['venue_sr']   * rows['innings']).sum() / max(total_inn, 1))
+            if 'venue_score' in rows.columns:
+                vscore = float((rows['venue_score'] * rows['innings']).sum() / max(total_inn, 1))
+            else:
+                vscore = avg * 0.5 + sr * 0.3
+            is_happy = bool(rows.get('is_happy_ground', pd.Series([False])).any())
+            is_bogey = bool(rows.get('is_bogey_ground', pd.Series([False])).any())
+            t = 'happy' if is_happy else 'bogey' if is_bogey else 'neutral'
+
+            # HS per venue — computed from ball-by-ball master frame.
+            # Match any of this canonical venue's patterns against master.venue.
+            # HS per venue — computed from ball-by-ball master frame.
+            # Also determines balls faced in that HS innings and whether
+            # the batter was not out.
+            bat_all = master[(master['batsman'] == player_name) & (master['is_wide'] == 0)]
+            venue_mask = False
+            for p in cv['patterns']:
+                venue_mask = venue_mask | bat_all['venue'].str.lower().str.contains(p, na=False, regex=False)
+            bat_venue = bat_all[venue_mask]
+            if len(bat_venue) > 0:
+                hs_by_match = bat_venue.groupby('matchId')['batsman_runs'].sum()
+                hs_match_id = hs_by_match.idxmax()
+                hs_venue = int(hs_by_match.max())
+                hs_innings = bat_venue[bat_venue['matchId'] == hs_match_id]
+                hs_balls_venue = int(len(hs_innings))
+                # Not out = batter was never the one dismissed in that innings.
+                # In master, is_wicket=1 is attributed to the ball on which the
+                # wicket fell; we check if the batter on strike was this player.
+                hs_notout = bool(
+                    (hs_innings['is_wicket'] == 1).sum() == 0
+                )
+            else:
+                hs_venue = 0
+                hs_balls_venue = 0
+                hs_notout = False
+
+            result.append({
+                'venue': display_name,
+                'innings': innings,
+                'runs': runs,
+                'avg': round(avg, 2),
+                'sr': round(sr, 2),
+                'hs': hs_venue,
+                'type': t,
+                '_score': vscore,
+            })
+
+    result.sort(key=lambda x: x['_score'], reverse=True)
+    for r in result:
+        del r['_score']
+    return result
 
 def predict_performance(player_name, venue='', opponent=''):
     latest_form = batting_features[batting_features['batsman'] == player_name].tail(1)
