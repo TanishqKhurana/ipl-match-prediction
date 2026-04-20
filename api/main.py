@@ -4,6 +4,9 @@ import pandas as pd
 import numpy as np
 import pickle
 from scipy import stats
+from pydantic import BaseModel
+from typing import Optional
+from sklearn.metrics.pairwise import cosine_similarity
 
 app = FastAPI(title="IPL Intelligence API", version="1.0.0")
 
@@ -104,8 +107,26 @@ def _match_canonical_venue(venue_short_str):
 master['date'] = pd.to_datetime(master['date'])
 batting_features['date'] = pd.to_datetime(batting_features['date'])
 
-print(f"✅ Data loaded! Players in career info: {len(player_career)}")
+print(f"Data loaded! Players in career info: {len(player_career)}")
 print(f"Sample players: {player_career['player'].tolist()[:5]}")
+
+scouting_profiles = pd.read_csv('../data/scouting_profiles.csv')
+dna_scaled = np.load('../data/dna_matrix_scaled.npy')
+player_names_idx = np.load('../data/player_names_index.npy', allow_pickle=True)
+ 
+scout_sim_matrix = cosine_similarity(dna_scaled)
+scout_player_index = {name: i for i, name in enumerate(player_names_idx)}
+ 
+SCOUT_TEAM_FULL = {
+    'RCB': 'Royal Challengers Bengaluru', 'MI': 'Mumbai Indians',
+    'CSK': 'Chennai Super Kings', 'KKR': 'Kolkata Knight Riders',
+    'DC': 'Delhi Capitals', 'SRH': 'Sunrisers Hyderabad',
+    'PBKS': 'Punjab Kings', 'RR': 'Rajasthan Royals',
+    'GT': 'Gujarat Titans', 'LSG': 'Lucknow Super Giants',
+}
+ 
+print(f"✅ Scouting loaded! {len(scouting_profiles)} profiles, "
+      f"DNA matrix {dna_scaled.shape}")
 
 # ── HELPER FUNCTIONS ───────────────────────────────────
 
@@ -316,6 +337,8 @@ def get_venue_stats(player_name, is_bowler=False):
                 'avg': round(avg, 2),
                 'sr': round(sr, 2),
                 'hs': hs_venue,
+                'hs_balls': hs_balls_venue,
+                'hs_notout': hs_notout,
                 'type': t,
                 '_score': vscore,
             })
@@ -564,3 +587,199 @@ def debug_history(player_name: str):
         "raw_history": str(row.iloc[0].get('franchise_history', '')),
         "current_franchise": str(row.iloc[0].get('current_franchise', ''))
     }
+def scout_recommend(team=None, playstyle=None, budget_max=None,
+                    min_matches=5, top_n=15):
+    result = scouting_profiles.copy()
+    result = result[result['status'].isin(['Active', 'Unsold', 'International'])]
+ 
+    if team:
+        full_name = SCOUT_TEAM_FULL.get(team, team)
+        result = result[result['current_franchise'] != full_name]
+ 
+    if playstyle and playstyle != 'All':
+        result = result[result['playstyle'] == playstyle]
+ 
+    if budget_max is not None and budget_max > 0:
+        result = result[
+            (result['price_cr'].isna()) | (result['price_cr'] <= budget_max)
+        ]
+ 
+    if 'matches_played' in result.columns:
+        result = result[result['matches_played'] >= min_matches]
+ 
+    result = result[result['scouting_score'] > 15]
+    result = result.nlargest(top_n, 'scouting_score')
+ 
+    players = []
+    for _, row in result.iterrows():
+        player = {
+            'name': str(row['player']),
+            'scoutingScore': round(float(row['scouting_score']), 1) if pd.notna(row['scouting_score']) else 0,
+            'performanceRating': round(float(row['performance_rating']), 1) if pd.notna(row['performance_rating']) else 0,
+            'formRating': round(float(row['form_rating']), 1) if pd.notna(row['form_rating']) else 0,
+            'consistencyRating': round(float(row['consistency_rating']), 1) if pd.notna(row['consistency_rating']) else 0,
+            'impactRating': round(float(row['impact_rating']), 1) if pd.notna(row['impact_rating']) else 0,
+            'pressureRating': round(float(row['pressure_rating']), 1) if pd.notna(row['pressure_rating']) else 0,
+            'playstyle': str(row['playstyle']) if pd.notna(row['playstyle']) else 'Utility',
+            'careerAvg': round(float(row['career_avg']), 1) if pd.notna(row['career_avg']) else 0,
+            'careerSR': round(float(row['career_sr']), 1) if pd.notna(row['career_sr']) else 0,
+            'price': round(float(row['price_cr']), 2) if pd.notna(row['price_cr']) else None,
+            'valueScore': round(float(row['value_score']), 1) if pd.notna(row['value_score']) else None,
+            'status': str(row['status']) if pd.notna(row['status']) else '',
+            'franchise': str(row['current_franchise']) if pd.notna(row['current_franchise']) else '',
+            'seasons': int(row['seasons_played']) if pd.notna(row.get('seasons_played')) else None,
+            'matchesPlayed': int(row['matches_played']) if pd.notna(row.get('matches_played')) else 0,
+            'isBowler': bool(row.get('is_bowler', False)) if pd.notna(row.get('is_bowler')) else False,
+            'isAllrounder': bool(row.get('is_allrounder', False)) if pd.notna(row.get('is_allrounder')) else False,
+        }
+        if pd.notna(row.get('bowl_wickets')) and row.get('bowl_wickets', 0) > 0:
+            player['bowlWickets'] = int(row['bowl_wickets'])
+            player['bowlEconomy'] = round(float(row['bowl_economy']), 1) if pd.notna(row.get('bowl_economy')) else None
+            player['bowlDotPct'] = round(float(row['bowl_dot_pct']), 1) if pd.notna(row.get('bowl_dot_pct')) else None
+        players.append(player)
+    return players
+ 
+ 
+def scout_find_similar(player_name, top_n=8, status_filter=None,
+                       budget_max=None, same_type=True):
+    if player_name not in scout_player_index:
+        return None
+ 
+    idx = scout_player_index[player_name]
+    sims = scout_sim_matrix[idx]
+    source_row = scouting_profiles.iloc[idx]
+ 
+    results = scouting_profiles.copy()
+    results['similarity'] = (sims * 100).round(1)
+    results = results[results['player'] != player_name]
+ 
+    if same_type:
+        is_ar = bool(source_row.get('is_allrounder', False)) if pd.notna(source_row.get('is_allrounder')) else False
+        is_bowl = bool(source_row.get('is_bowler', False)) if pd.notna(source_row.get('is_bowler')) else False
+        if is_ar:
+            results = results[results['is_allrounder'] == True]
+        elif is_bowl:
+            results = results[results['is_bowler'] == True]
+        else:
+            has_bowl = 'is_bowler' in results.columns
+            has_ar = 'is_allrounder' in results.columns
+            if has_bowl and has_ar:
+                results = results[(results['is_bowler'] == False) & (results['is_allrounder'] == False)]
+ 
+    if status_filter and status_filter != 'All':
+        if status_filter == 'Available':
+            results = results[results['status'].isin(['Active', 'Unsold', 'International'])]
+        else:
+            results = results[results['status'] == status_filter]
+ 
+    if budget_max is not None and budget_max > 0:
+        results = results[
+            (results['price_cr'].isna()) | (results['price_cr'] <= budget_max)
+        ]
+ 
+    results = results.nlargest(top_n, 'similarity')
+ 
+    players = []
+    for _, row in results.iterrows():
+        p = {
+            'name': str(row['player']),
+            'similarity': float(row['similarity']),
+            'scoutingScore': round(float(row['scouting_score']), 1) if pd.notna(row['scouting_score']) else 0,
+            'playstyle': str(row['playstyle']) if pd.notna(row['playstyle']) else 'Utility',
+            'careerAvg': round(float(row['career_avg']), 1) if pd.notna(row['career_avg']) else 0,
+            'careerSR': round(float(row['career_sr']), 1) if pd.notna(row['career_sr']) else 0,
+            'price': round(float(row['price_cr']), 2) if pd.notna(row['price_cr']) else None,
+            'status': str(row['status']) if pd.notna(row['status']) else '',
+            'franchise': str(row['current_franchise']) if pd.notna(row['current_franchise']) else '',
+        }
+        if pd.notna(row.get('bowl_wickets')) and row.get('bowl_wickets', 0) > 0:
+            p['bowlWickets'] = int(row['bowl_wickets'])
+            p['bowlEconomy'] = round(float(row['bowl_economy']), 1) if pd.notna(row.get('bowl_economy')) else None
+        players.append(p)
+ 
+    source = {
+        'name': player_name,
+        'playstyle': str(source_row['playstyle']) if pd.notna(source_row['playstyle']) else 'Utility',
+        'careerAvg': round(float(source_row['career_avg']), 1) if pd.notna(source_row['career_avg']) else 0,
+        'careerSR': round(float(source_row['career_sr']), 1) if pd.notna(source_row['career_sr']) else 0,
+        'isBowler': bool(source_row.get('is_bowler', False)) if pd.notna(source_row.get('is_bowler')) else False,
+        'isAllrounder': bool(source_row.get('is_allrounder', False)) if pd.notna(source_row.get('is_allrounder')) else False,
+    }
+ 
+    return {'source': source, 'similar': players}
+ 
+ 
+# ── MODULE 2: Scouting endpoints ───────────────────────────
+ 
+class ScoutingRequest(BaseModel):
+    team: Optional[str] = None
+    playstyle: Optional[str] = None
+    budgetMax: Optional[float] = None
+    topN: Optional[int] = 15
+ 
+ 
+@app.get("/scouting/playstyles")
+def get_playstyles():
+    active = scouting_profiles[scouting_profiles['status'].isin(['Active', 'Unsold', 'International'])]
+    counts = active['playstyle'].value_counts().to_dict()
+    return [{'name': k, 'count': int(v)} for k, v in sorted(counts.items())]
+ 
+ 
+@app.post("/scouting/recommend")
+def scouting_recommend(req: ScoutingRequest):
+    players = scout_recommend(
+        team=req.team,
+        playstyle=req.playstyle,
+        budget_max=req.budgetMax,
+        top_n=req.topN or 15,
+    )
+    return {
+        'filters': {
+            'team': req.team,
+            'playstyle': req.playstyle,
+            'budgetMax': req.budgetMax,
+        },
+        'count': len(players),
+        'players': players,
+    }
+ 
+ 
+@app.get("/scouting/similar/{player_name}")
+def scouting_similar(player_name: str, status: str = '', budget: float = 0):
+    result = scout_find_similar(
+        player_name,
+        top_n=8,
+        status_filter=status if status else None,
+        budget_max=budget if budget > 0 else None,
+    )
+    if result is None:
+        return {'error': f'Player {player_name} not found in scouting database'}
+    return result
+ 
+ 
+@app.get("/scouting/value-rankings")
+def scouting_value_rankings(top_n: int = 20, min_matches: int = 10):
+    df = scouting_profiles[
+        (scouting_profiles['value_score'].notna()) &
+        (scouting_profiles['status'].isin(['Active', 'Unsold'])) &
+        (scouting_profiles['matches_played'] >= min_matches)
+    ].nlargest(top_n, 'value_score')
+ 
+    players = []
+    for _, row in df.iterrows():
+        players.append({
+            'name': str(row['player']),
+            'performanceRating': round(float(row['performance_rating']), 1),
+            'price': round(float(row['price_cr']), 2),
+            'valueScore': round(float(row['value_score']), 1),
+            'playstyle': str(row['playstyle']),
+            'careerAvg': round(float(row['career_avg']), 1) if pd.notna(row['career_avg']) else 0,
+            'careerSR': round(float(row['career_sr']), 1) if pd.notna(row['career_sr']) else 0,
+            'status': str(row['status']),
+        })
+    return {'count': len(players), 'players': players}
+ 
+ 
+@app.get("/scouting/teams")
+def get_teams():
+    return [{'abbr': a, 'name': n} for a, n in SCOUT_TEAM_FULL.items()]
