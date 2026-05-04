@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom'
 import PlayerIntelligence from './pages/PlayerIntelligence'
+import PlayerScouting from './pages/PlayerScouting'
 import './App.css'
 
 const NAV_ITEMS = [
@@ -73,7 +74,7 @@ export default function App() {
         <main style={{ marginLeft: '220px', flex: 1, minHeight: '100vh', padding: '32px' }}>
           <Routes>
             <Route path="/" element={<PlayerIntelligence />} />
-            <Route path="/scouting" element={<ComingSoon title="Player Scouting" icon="🔍" />} />
+            <Route path="/scouting" element={<PlayerScouting />} />
             <Route path="/team" element={<ComingSoon title="Team Builder" icon="🧩" />} />
             <Route path="/match" element={<ComingSoon title="Match Advisor" icon="⚡" />} />
             <Route path="/opponent" element={<ComingSoon title="Opponent Analysis" icon="🎯" />} />

@@ -805,7 +805,8 @@ function PlayerProfile({ playerName, onBack }) {
 }
 
 export default function PlayerIntelligence() {
-  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const params = new URLSearchParams(window.location.search)
+  const [selectedPlayer, setSelectedPlayer] = useState(params.get('player') || null)
   if (!selectedPlayer) {
     return <LandingPage onSearch={setSelectedPlayer} />
   }

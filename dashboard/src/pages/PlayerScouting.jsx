@@ -1,27 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const API = 'http://127.0.0.1:8000'
-
-const TEAM_COLORS = {
-  'Royal Challengers Bengaluru': '#9c2121', 'Mumbai Indians': '#004ba0',
-  'Chennai Super Kings': '#f9cd05', 'Kolkata Knight Riders': '#521ca2',
-  'Delhi Capitals': '#004c93', 'Sunrisers Hyderabad': '#f26522',
-  'Punjab Kings': '#e40a44', 'Rajasthan Royals': '#e50ec5',
-  'Gujarat Titans': '#1c2951', 'Lucknow Super Giants': '#a2d9f7',
-}
-
-const TEAM_LOGOS = {
-  'Royal Challengers Bengaluru': '/logos/RCB_logo.svg',
-  'Mumbai Indians': '/logos/MI_logo.svg',
-  'Chennai Super Kings': '/logos/CSK_logo.svg',
-  'Kolkata Knight Riders': '/logos/KKR_logo.svg',
-  'Delhi Capitals': '/logos/DC_logo.svg',
-  'Sunrisers Hyderabad': '/logos/SRH_logo.svg',
-  'Punjab Kings': '/logos/PBKS_logo.svg',
-  'Rajasthan Royals': '/logos/RR_logo.svg',
-  'Gujarat Titans': '/logos/GT_logo.svg',
-  'Lucknow Super Giants': '/logos/LSG_logo.svg',
-}
 
 const PLAYSTYLE_COLORS = {
   'Aggressive': '#ef4444', 'Anchor': '#3b82f6', 'Finisher': '#f59e0b',
@@ -29,249 +9,89 @@ const PLAYSTYLE_COLORS = {
   'Death Specialist': '#dc2626', 'Restrictive Bowler': '#0ea5e9',
   'Wicket-taker': '#10b981', 'Support Bowler': '#94a3b8',
   'Batting Allrounder': '#f97316', 'Bowling Allrounder': '#14b8a6',
+  'Defensive (Run Stopper)': '#0ea5e9', 'Wicket-taker (Strike Bowler)': '#10b981',
+  'Powerplay Specialist': '#f97316', 'Middle Over Specialist': '#8b5cf6',
 }
-
-const PLAYSTYLE_ICONS = {
-  'Aggressive': '⚡', 'Anchor': '🛡️', 'Finisher': '🎯', 'Impact': '💥', 'Utility': '🔧',
-  'Death Specialist': '☠️', 'Restrictive Bowler': '🔒', 'Wicket-taker': '🏏', 'Support Bowler': '📋',
-  'Batting Allrounder': '🌟', 'Bowling Allrounder': '🌀',
-}
-
-const BUDGET_MARKS = [0.5, 1, 2, 3, 5, 8, 10, 15, 20, 25]
 
 function ScoreBar({ label, value, color }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
       <span style={{ color: 'var(--text-muted)', width: '28px', textAlign: 'right', fontFamily: 'DM Mono, monospace', letterSpacing: '0.5px' }}>{label}</span>
       <div style={{ flex: 1, height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: value + '%', background: color, borderRadius: '2px', transition: 'width 0.6s ease' }} />
+        <div style={{ height: '100%', width: (value || 0) + '%', background: color, borderRadius: '2px' }} />
       </div>
-      <span style={{ color: 'var(--text-secondary)', width: '28px', fontWeight: 600, fontFamily: 'Rajdhani, sans-serif', fontSize: '13px' }}>{value}</span>
+      <span style={{ color: 'var(--text-secondary)', width: '28px', fontWeight: 600, fontFamily: 'Rajdhani, sans-serif', fontSize: '13px' }}>{value || 0}</span>
     </div>
   )
 }
 
-function PlayerCard({ player, rank, onSimilar }) {
-  const psColor = PLAYSTYLE_COLORS[player.playstyle] || '#6b7280'
-  const psIcon = PLAYSTYLE_ICONS[player.playstyle] || '•'
-
+function FilterSelect({ label, value, onChange, options, disabled }) {
   return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: '12px', padding: '20px',
-      borderLeft: '3px solid ' + psColor,
-      animation: 'fadeUp 0.3s ease forwards',
-      animationDelay: (rank * 40) + 'ms', opacity: 0,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '50%',
-            background: rank < 3 ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
-            border: '1px solid ' + (rank < 3 ? 'var(--accent-gold)' : 'var(--border)'),
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '13px', fontWeight: 700,
-            color: rank < 3 ? 'var(--accent-gold)' : 'var(--text-secondary)',
-            fontFamily: 'Rajdhani, sans-serif',
-          }}>
-            #{rank + 1}
-          </div>
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', fontFamily: 'Rajdhani, sans-serif' }}>
-              {player.name}
-            </div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
-              <span style={{
-                background: psColor + '22', color: psColor, border: '1px solid ' + psColor + '44',
-                borderRadius: '4px', padding: '1px 8px', fontSize: '10px', fontWeight: 600,
-                fontFamily: 'DM Mono, monospace',
-              }}>
-                {psIcon} {player.playstyle}
-              </span>
-              {player.status === 'Unsold' && (
-                <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 600 }}>UNSOLD</span>
-              )}
-              {player.status === 'International' && (
-                <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 600 }}>INTL</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--accent-gold)', fontFamily: 'Rajdhani, sans-serif', lineHeight: 1 }}>
-            {player.scoutingScore}
-          </div>
-          <div style={{ fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '1.5px', fontFamily: 'DM Mono, monospace' }}>SCOUT</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '14px', flexWrap: 'wrap' }}>
-        {!player.isBowler && (
-          <>
-            <div style={{ textAlign: 'center', minWidth: '50px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>AVG</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--text-primary)' }}>{player.careerAvg?.toFixed(1) || '—'}</div>
-            </div>
-            <div style={{ textAlign: 'center', minWidth: '50px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>SR</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--text-primary)' }}>{player.careerSR?.toFixed(1) || '—'}</div>
-            </div>
-          </>
-        )}
-        {player.bowlWickets && (
-          <>
-            <div style={{ textAlign: 'center', minWidth: '50px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>WKTS</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--accent-red)' }}>{player.bowlWickets}</div>
-            </div>
-            <div style={{ textAlign: 'center', minWidth: '50px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>ECO</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--accent-gold)' }}>{player.bowlEconomy?.toFixed(1) || '—'}</div>
-            </div>
-          </>
-        )}
-        <div style={{ textAlign: 'center', minWidth: '50px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>PRICE</div>
-          <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--accent-green)' }}>
-            {player.price ? '₹' + player.price + 'Cr' : '—'}
-          </div>
-        </div>
-        {player.valueScore && (
-          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>VALUE</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--accent-purple)' }}>{player.valueScore.toFixed(1)}</div>
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
-        <ScoreBar label="PERF" value={player.performanceRating} color="var(--accent-gold)" />
-        <ScoreBar label="FORM" value={player.formRating} color="var(--accent-green)" />
-        <ScoreBar label="IMPT" value={player.impactRating} color="var(--accent-blue)" />
-        <ScoreBar label="PRES" value={player.pressureRating} color="var(--accent-purple)" />
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          {player.franchise && player.franchise !== 'Retired' && player.franchise !== 'Unsold' && player.franchise !== 'International'
-            ? player.franchise
-            : player.matchesPlayed + ' matches'}
-        </span>
-        <button
-          onClick={function() { onSimilar(player.name) }}
-          style={{
-            background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)',
-            borderRadius: '6px', padding: '4px 10px', cursor: 'pointer',
-            fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'DM Mono, monospace',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={function(e) { e.target.style.borderColor = 'var(--accent-gold)'; e.target.style.color = 'var(--accent-gold)' }}
-          onMouseLeave={function(e) { e.target.style.borderColor = 'var(--border)'; e.target.style.color = 'var(--text-secondary)' }}
-        >
-          FIND SIMILAR
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function SimilarPanel({ data, onClose }) {
-  if (!data) return null
-  const source = data.source
-  const similar = data.similar
-
-  return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: '14px', padding: '24px', marginBottom: '20px',
-      borderTop: '3px solid var(--accent-blue)',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '2px', fontFamily: 'DM Mono, monospace' }}>PLAYERS SIMILAR TO</span>
-          <h3 style={{ fontSize: '22px', fontWeight: 700, color: '#fff', fontFamily: 'Rajdhani, sans-serif', marginTop: '2px' }}>
-            {source.name}
-          </h3>
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-            {source.playstyle} · {source.isBowler ? 'Bowler' : source.isAllrounder ? 'All-rounder' : 'Batter'}
-          </span>
-        </div>
-        <button onClick={onClose} style={{
-          background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)',
-          borderRadius: '8px', padding: '6px 14px', cursor: 'pointer',
-          color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'DM Sans, sans-serif',
-        }}>
-          Close
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
-        {similar.map(function(p, i) {
-          return (
-            <div key={p.name} style={{
-              background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '14px',
-              border: '1px solid var(--border)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>{p.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {p.playstyle} · {p.status}
-                  {p.price ? ' · ₹' + p.price + 'Cr' : ''}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  {p.careerAvg ? 'Avg ' + p.careerAvg.toFixed(1) : ''}
-                  {p.careerSR ? ' · SR ' + p.careerSR.toFixed(1) : ''}
-                  {p.bowlWickets ? ' · ' + p.bowlWickets + ' wkts' : ''}
-                  {p.bowlEconomy ? ' · eco ' + p.bowlEconomy.toFixed(1) : ''}
-                </div>
-              </div>
-              <div style={{ textAlign: 'center', flexShrink: 0, marginLeft: '12px' }}>
-                <div style={{
-                  fontSize: '22px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif',
-                  color: p.similarity > 95 ? 'var(--accent-green)' : p.similarity > 85 ? 'var(--accent-gold)' : 'var(--text-secondary)',
-                }}>
-                  {p.similarity}%
-                </div>
-                <div style={{ fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '1px' }}>MATCH</div>
-              </div>
-            </div>
-          )
+    <div style={{ opacity: disabled ? 0.4 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
+      <label style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>{label}</label>
+      <select value={value} onChange={function(e) { onChange(e.target.value) }} style={{
+        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+        borderRadius: '10px', padding: '10px 14px', color: 'var(--text-primary)',
+        fontSize: '13px', fontFamily: 'DM Sans, sans-serif', outline: 'none',
+        cursor: 'pointer', width: '100%', appearance: 'none',
+        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%238b8fa8\' stroke-width=\'2\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")',
+        backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+      }}>
+        {options.map(function(opt) {
+          return <option key={opt.value} value={opt.value}>{opt.label}</option>
         })}
-      </div>
+      </select>
     </div>
   )
 }
 
 export default function PlayerScouting() {
-  const [teams, setTeams] = useState([])
-  const [playstyles, setPlaystyles] = useState([])
-  const [selectedTeam, setSelectedTeam] = useState('')
-  const [selectedPlaystyle, setSelectedPlaystyle] = useState('All')
-  const [budgetMax, setBudgetMax] = useState(25)
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
-  const [similarData, setSimilarData] = useState(null)
-  const [similarLoading, setSimilarLoading] = useState(false)
+  var navigate = useNavigate()
+  var [filters, setFilters] = useState(null)
+  var [teams, setTeams] = useState([])
+  var [results, setResults] = useState([])
+  var [loading, setLoading] = useState(false)
+  var [searched, setSearched] = useState(false)
+  var [showAll, setShowAll] = useState(false)
+  var [sortBy, setSortBy] = useState('score')
+  var [selectedTeam, setSelectedTeam] = useState('')
+  var [teamProfile, setTeamProfile] = useState(null)
+  var [nationality, setNationality] = useState('All')
+  var [playerType, setPlayerType] = useState('All')
+  var [battingRole, setBattingRole] = useState('All')
+  var [battingHand, setBattingHand] = useState('All')
+  var [bowlingCategory, setBowlingCategory] = useState('All')
+  var [bowlingSpecialty, setBowlingSpecialty] = useState('All')
+  var [budgetMax, setBudgetMax] = useState(25)
 
   useEffect(function() {
     fetch(API + '/scouting/teams').then(function(r) { return r.json() }).then(setTeams).catch(function() {})
-    fetch(API + '/scouting/playstyles').then(function(r) { return r.json() }).then(setPlaystyles).catch(function() {})
+    fetch(API + '/scouting/filters').then(function(r) { return r.json() }).then(setFilters).catch(function() {})
   }, [])
+
+  useEffect(function() {
+    setBattingRole('All')
+    setBowlingCategory('All')
+    setBowlingSpecialty('All')
+  }, [playerType])
 
   function handleSearch() {
     setLoading(true)
     setSearched(true)
-    setSimilarData(null)
+    setShowAll(false)
     fetch(API + '/scouting/recommend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         team: selectedTeam || null,
-        playstyle: selectedPlaystyle === 'All' ? null : selectedPlaystyle,
+        nationality: nationality === 'All' ? null : nationality,
+        playerType: playerType === 'All' ? null : playerType,
+        battingRole: battingRole === 'All' ? null : battingRole,
+        battingHand: battingHand === 'All' ? null : battingHand,
+        bowlingCategory: bowlingCategory === 'All' ? null : bowlingCategory,
+        bowlingSpecialty: bowlingSpecialty === 'All' ? null : bowlingSpecialty,
         budgetMax: budgetMax < 25 ? budgetMax : null,
-        topN: 15,
+        topN: 50,
       })
     })
       .then(function(r) { return r.json() })
@@ -279,27 +99,39 @@ export default function PlayerScouting() {
       .catch(function() { setResults([]); setLoading(false) })
   }
 
-  function handleSimilar(playerName) {
-    setSimilarLoading(true)
-    fetch(API + '/scouting/similar/' + encodeURIComponent(playerName))
-      .then(function(r) { return r.json() })
-      .then(function(data) { setSimilarData(data); setSimilarLoading(false) })
-      .catch(function() { setSimilarLoading(false) })
+  function handleTeamChange(e) {
+    var val = e.target.value
+    setSelectedTeam(val)
+    if (val) {
+      fetch(API + '/scouting/team-profile/' + val)
+        .then(function(r) { return r.json() })
+        .then(setTeamProfile)
+        .catch(function() { setTeamProfile(null) })
+    } else {
+      setTeamProfile(null)
+    }
   }
 
-  var selectStyle = {
-    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-    borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)',
-    fontSize: '14px', fontFamily: 'DM Sans, sans-serif', outline: 'none',
-    cursor: 'pointer', width: '100%', appearance: 'none',
-    backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%238b8fa8\' stroke-width=\'2\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")',
-    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+  var showBattingFilters = playerType === 'All' || playerType === 'Batsman' || playerType === 'Wicket Keeper' || playerType === 'All-Rounder'
+  var showBowlingFilters = playerType === 'All' || playerType === 'Bowler' || playerType === 'All-Rounder'
+
+  function makeOptions(list) {
+    if (!list) return [{ value: 'All', label: 'All' }]
+    return [{ value: 'All', label: 'All' }].concat(
+      list.map(function(item) { return { value: item.name, label: item.name } })
+    )
   }
+
+  // Sort results
+  var sortedResults = results.slice()
+  if (sortBy === 'value') {
+    sortedResults.sort(function(a, b) { return (b.valueScore || 0) - (a.valueScore || 0) })
+  }
+  var visibleResults = showAll ? sortedResults : sortedResults.slice(0, 15)
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       <style>{`
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
         select option { background: var(--bg-secondary); color: var(--text-primary); }
         input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: var(--border); border-radius: 2px; outline: none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: var(--accent-gold); border-radius: 50%; cursor: pointer; }
@@ -307,14 +139,12 @@ export default function PlayerScouting() {
 
       {/* Header */}
       <div style={{ marginBottom: '28px' }}>
-        <div style={{ fontSize: '10px', color: 'var(--accent-blue)', letterSpacing: '3px', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>
-          MODULE 2
-        </div>
+        <div style={{ fontSize: '10px', color: 'var(--accent-blue)', letterSpacing: '3px', fontFamily: 'DM Mono, monospace', marginBottom: '6px' }}>MODULE 2</div>
         <h1 style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: '#fff', lineHeight: 1.1 }}>
           Player Scouting Engine
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '6px' }}>
-          Find the right player for your franchise. Filter by playstyle, budget, and team needs.
+          Find the right player for your franchise. Filter by type, role, bowling style, and budget.
         </p>
       </div>
 
@@ -327,43 +157,83 @@ export default function PlayerScouting() {
           SCOUT FILTERS
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-          {/* Team */}
+        {/* Row 1 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '14px' }}>
           <div>
             <label style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>YOUR TEAM</label>
-            <select value={selectedTeam} onChange={function(e) { setSelectedTeam(e.target.value) }} style={selectStyle}>
+            <select value={selectedTeam} onChange={handleTeamChange} style={{
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+              borderRadius: '10px', padding: '10px 14px', color: 'var(--text-primary)',
+              fontSize: '13px', fontFamily: 'DM Sans, sans-serif', outline: 'none',
+              cursor: 'pointer', width: '100%', appearance: 'none',
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%238b8fa8\' stroke-width=\'2\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")',
+              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+            }}>
               <option value="">Any Team</option>
               {teams.map(function(t) {
                 return <option key={t.abbr} value={t.abbr}>{t.abbr} — {t.name}</option>
               })}
             </select>
           </div>
+          <FilterSelect label="NATIONALITY" value={nationality} onChange={setNationality}
+            options={makeOptions(filters ? filters.nationalities : null)} />
+          <FilterSelect label="PLAYER TYPE" value={playerType} onChange={setPlayerType}
+            options={makeOptions(filters ? filters.playerTypes : null)} />
+        </div>
 
-          {/* Playstyle */}
-          <div>
-            <label style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>PLAYSTYLE</label>
-            <select value={selectedPlaystyle} onChange={function(e) { setSelectedPlaystyle(e.target.value) }} style={selectStyle}>
-              <option value="All">All Playstyles</option>
-              {playstyles.map(function(ps) {
-                var icon = PLAYSTYLE_ICONS[ps.name] || ''
-                return <option key={ps.name} value={ps.name}>{icon} {ps.name} ({ps.count})</option>
+        {/* Team banner */}
+        {teamProfile && (
+          <div style={{
+            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+            borderRadius: '8px', padding: '12px 16px', marginBottom: '14px',
+            display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: '11px', color: 'var(--accent-gold)', fontWeight: 600 }}>
+              {teamProfile.team} STRATEGY:
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flex: 1 }}>
+              {teamProfile.description}
+            </span>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {teamProfile.preferredPlaystyles && teamProfile.preferredPlaystyles.map(function(ps) {
+                return (
+                  <span key={ps} style={{
+                    background: 'rgba(245,158,11,0.15)', color: 'var(--accent-gold)',
+                    borderRadius: '4px', padding: '2px 6px', fontSize: '9px', fontWeight: 600,
+                  }}>
+                    {ps}
+                  </span>
+                )
               })}
-            </select>
-          </div>
-
-          {/* Budget */}
-          <div>
-            <label style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>
-              MAX BUDGET: {budgetMax >= 25 ? 'No Limit' : '₹' + budgetMax + ' Cr'}
-            </label>
-            <input
-              type="range" min="0.5" max="25" step="0.5" value={budgetMax}
-              onChange={function(e) { setBudgetMax(parseFloat(e.target.value)) }}
-              style={{ marginTop: '8px' }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              <span>₹0.5 Cr</span><span>₹25 Cr</span>
             </div>
+          </div>
+        )}
+
+        {/* Row 2 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+          <FilterSelect label="BATTING ROLE" value={battingRole} onChange={setBattingRole}
+            options={makeOptions(filters ? filters.battingRoles : null)}
+            disabled={!showBattingFilters} />
+          <FilterSelect label="BATTING HAND" value={battingHand} onChange={setBattingHand}
+            options={[{ value: 'All', label: 'All' }, { value: 'R', label: 'Right Hand' }, { value: 'L', label: 'Left Hand' }]}
+            disabled={!showBattingFilters} />
+          <FilterSelect label="BOWLING TYPE" value={bowlingCategory} onChange={setBowlingCategory}
+            options={makeOptions(filters ? filters.bowlingCategories : null)}
+            disabled={!showBowlingFilters} />
+          <FilterSelect label="BOWLING SPECIALTY" value={bowlingSpecialty} onChange={setBowlingSpecialty}
+            options={makeOptions(filters ? filters.bowlingSpecialties : null)}
+            disabled={!showBowlingFilters} />
+        </div>
+
+        {/* Budget */}
+        <div style={{ marginBottom: '18px' }}>
+          <label style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px', display: 'block', marginBottom: '6px' }}>
+            MAX BUDGET: {budgetMax >= 25 ? 'No Limit' : '₹' + budgetMax + ' Cr'}
+          </label>
+          <input type="range" min="0.5" max="25" step="0.5" value={budgetMax}
+            onChange={function(e) { setBudgetMax(parseFloat(e.target.value)) }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            <span>₹0.5 Cr</span><span>₹25 Cr</span>
           </div>
         </div>
 
@@ -371,14 +241,11 @@ export default function PlayerScouting() {
           background: 'var(--accent-gold)', border: 'none', borderRadius: '10px',
           padding: '12px 32px', cursor: 'pointer', fontSize: '14px', fontWeight: 700,
           fontFamily: 'Rajdhani, sans-serif', color: '#000', letterSpacing: '1px',
-          transition: 'all 0.2s', width: '100%',
+          width: '100%',
         }}>
           {loading ? 'SEARCHING...' : 'FIND PLAYERS'}
         </button>
       </div>
-
-      {/* Similar panel */}
-      {similarData && <SimilarPanel data={similarData} onClose={function() { setSimilarData(null) }} />}
 
       {/* Results */}
       {searched && !loading && (
@@ -393,16 +260,190 @@ export default function PlayerScouting() {
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
           </div>
 
+          {/* Sort toggle */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            {['score', 'value'].map(function(mode) {
+              var active = sortBy === mode
+              return (
+                <button key={mode} onClick={function() { setSortBy(mode) }} style={{
+                  padding: '6px 16px', borderRadius: '6px', border: 'none',
+                  cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                  fontFamily: 'DM Mono, monospace',
+                  background: active ? 'var(--accent-gold)' : 'rgba(255,255,255,0.04)',
+                  color: active ? '#000' : 'var(--text-muted)',
+                }}>
+                  {mode === 'score' ? 'SORT BY SCOUT SCORE' : 'SORT BY VALUE'}
+                </button>
+              )
+            })}
+          </div>
+
           {results.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '14px' }}>
-              {results.map(function(p, i) {
-                return <PlayerCard key={p.name} player={p} rank={i} onSimilar={handleSimilar} />
+              {visibleResults.map(function(player, i) {
+                var psColor = PLAYSTYLE_COLORS[player.playstyle] || PLAYSTYLE_COLORS[player.bowlingSpecialty] || '#6b7280'
+                return (
+                  <div key={player.name + i} style={{
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                    borderRadius: '12px', padding: '20px',
+                    borderLeft: '3px solid ' + psColor,
+                  }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '32px', height: '32px', borderRadius: '50%',
+                          background: i < 3 ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: '1px solid ' + (i < 3 ? 'var(--accent-gold)' : 'var(--border)'),
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '13px', fontWeight: 700,
+                          color: i < 3 ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                          fontFamily: 'Rajdhani, sans-serif',
+                        }}>
+                          #{i + 1}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', fontFamily: 'Rajdhani, sans-serif' }}>
+                            {player.name}
+                          </div>
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginTop: '2px', flexWrap: 'wrap' }}>
+                            {player.playerType && (
+                              <span style={{
+                                background: psColor + '22', color: psColor, border: '1px solid ' + psColor + '44',
+                                borderRadius: '4px', padding: '1px 8px', fontSize: '10px', fontWeight: 600,
+                              }}>
+                                {player.playerType}
+                              </span>
+                            )}
+                            {player.battingRole && (
+                              <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 600 }}>
+                                {player.battingRole}
+                              </span>
+                            )}
+                            {player.bowlingCategory && (
+                              <span style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 600 }}>
+                                {player.bowlingCategory}
+                              </span>
+                            )}
+                            {player.bowlingSpecialty && (
+                              <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 600 }}>
+                                {player.bowlingSpecialty}
+                              </span>
+                            )}
+                            <span style={{
+                              background: player.nationality === 'Indian' ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.15)',
+                              color: player.nationality === 'Indian' ? '#f59e0b' : '#818cf8',
+                              borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 600,
+                            }}>
+                              {player.nationality || 'Overseas'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--accent-gold)', fontFamily: 'Rajdhani, sans-serif', lineHeight: 1 }}>
+                          {player.scoutingScore || 0}
+                        </div>
+                        <div style={{ fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '1.5px', fontFamily: 'DM Mono, monospace' }}>SCOUT</div>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                      {player.careerAvg > 0 && (
+                        <div style={{ textAlign: 'center', minWidth: '44px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>AVG</div>
+                          <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif' }}>{(player.careerAvg || 0).toFixed(1)}</div>
+                        </div>
+                      )}
+                      {player.careerSR > 0 && (
+                        <div style={{ textAlign: 'center', minWidth: '44px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>SR</div>
+                          <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif' }}>{(player.careerSR || 0).toFixed(1)}</div>
+                        </div>
+                      )}
+                      {player.bowlWickets > 0 && (
+                        <div style={{ textAlign: 'center', minWidth: '44px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>WKTS</div>
+                          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-red)', fontFamily: 'Rajdhani, sans-serif' }}>{player.bowlWickets}</div>
+                        </div>
+                      )}
+                      {player.bowlEconomy > 0 && (
+                        <div style={{ textAlign: 'center', minWidth: '44px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ECO</div>
+                          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-gold)', fontFamily: 'Rajdhani, sans-serif' }}>{(player.bowlEconomy || 0).toFixed(1)}</div>
+                        </div>
+                      )}
+                      <div style={{ textAlign: 'center', minWidth: '44px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>PRICE</div>
+                        <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-green)', fontFamily: 'Rajdhani, sans-serif' }}>
+                          {player.price ? '₹' + player.price + 'Cr' : '—'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Score bars */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                      <ScoreBar label="PERF" value={player.performanceRating} color="var(--accent-gold)" />
+                      <ScoreBar label="FORM" value={player.formRating} color="var(--accent-green)" />
+                      <ScoreBar label="IMPT" value={player.impactRating} color="var(--accent-blue)" />
+                      <ScoreBar label="PRES" value={player.pressureRating} color="var(--accent-purple)" />
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {player.matchesPlayed ? player.matchesPlayed + ' matches' : ''}
+                      </span>
+                      <button
+                        onClick={function() { navigate('/?player=' + encodeURIComponent(player.name)) }}
+                        style={{
+                          background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)',
+                          borderRadius: '6px', padding: '4px 10px', cursor: 'pointer',
+                          fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'DM Mono, monospace',
+                        }}
+                      >
+                        VIEW PROFILE
+                      </button>
+                    </div>
+                  </div>
+                )
               })}
+
+              {/* Show more */}
+              {!showAll && sortedResults.length > 15 && (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '16px' }}>
+                  <button onClick={function() { setShowAll(true) }} style={{
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)',
+                    borderRadius: '10px', padding: '10px 32px', cursor: 'pointer',
+                    fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'DM Sans, sans-serif',
+                  }}>
+                    SHOW MORE ({sortedResults.length - 15} remaining)
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '18px', marginBottom: '8px' }}>No players match your criteria</div>
-              <div style={{ fontSize: '13px' }}>Try adjusting your filters — wider budget or different playstyle</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '18px', marginBottom: '8px' }}>No exact matches found</div>
+              <div style={{ fontSize: '13px', marginBottom: '20px' }}>Try widening your filters</div>
+              <button onClick={function() {
+                setLoading(true)
+                fetch(API + '/scouting/recommend', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ topN: 15 })
+                })
+                  .then(function(r) { return r.json() })
+                  .then(function(data) { setResults(data.players || []); setLoading(false) })
+                  .catch(function() { setLoading(false) })
+              }} style={{
+                background: 'var(--accent-gold)', border: 'none', borderRadius: '8px',
+                padding: '8px 24px', cursor: 'pointer', fontSize: '13px', fontWeight: 700,
+                fontFamily: 'Rajdhani, sans-serif', color: '#000',
+              }}>
+                SHOW TOP PICKS
+              </button>
             </div>
           )}
         </div>
@@ -412,9 +453,9 @@ export default function PlayerScouting() {
       {!searched && (
         <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
-          <div style={{ fontSize: '16px', marginBottom: '8px', color: 'var(--text-secondary)' }}>Select your filters and hit Find Players</div>
+          <div style={{ fontSize: '16px', marginBottom: '8px', color: 'var(--text-secondary)' }}>Configure your scouting requirements above</div>
           <div style={{ fontSize: '13px' }}>
-            The scouting engine analyzes {playstyles.reduce(function(sum, p) { return sum + p.count }, 0) || '700+'} players across 37 performance dimensions
+            Select a player type, role, and bowling specialty to find the perfect addition to your squad
           </div>
         </div>
       )}

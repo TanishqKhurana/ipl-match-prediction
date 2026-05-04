@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from typing import Optional
 from sklearn.metrics.pairwise import cosine_similarity
 
+#uvicorn main:app --reload --port 8000
+
 app = FastAPI(title="IPL Intelligence API", version="1.0.0")
 
 app.add_middleware(
@@ -124,8 +126,74 @@ SCOUT_TEAM_FULL = {
     'PBKS': 'Punjab Kings', 'RR': 'Rajasthan Royals',
     'GT': 'Gujarat Titans', 'LSG': 'Lucknow Super Giants',
 }
- 
-print(f"✅ Scouting loaded! {len(scouting_profiles)} profiles, "
+# Team scouting DNA — each franchise's preferred player profile.
+# 'nationality_boost': bonus for matching nationality preference
+# 'playstyle_boost': list of playstyles this team values more
+# 'stat_weights': which stats matter more for this team's strategy
+# 'description': shown on dashboard
+TEAM_PROFILES = {
+    'MI': {
+        'description': 'Power hitters + pace attack. Invests in Indian domestic gems.',
+        'nationality_boost': {'Indian': 1.15},
+        'playstyle_boost': ['Aggressive', 'Finisher', 'Death Specialist'],
+        'stat_weights': {'career_sr': 1.3, 'boundary_rate': 1.3, 'avg_sr_Death': 1.2},
+    },
+    'CSK': {
+        'description': 'Experience over youth. Spin-heavy, anchor-based batting.',
+        'nationality_boost': {},
+        'playstyle_boost': ['Anchor', 'Bowling Allrounder', 'Middle Over Specialist'],
+        'stat_weights': {'career_avg': 1.3, 'consistency': 0.7, 'bowl_economy_mi': 1.2},
+    },
+    'RCB': {
+        'description': 'Strong top order. Historically weak death bowling — prioritize it.',
+        'nationality_boost': {},
+        'playstyle_boost': ['Death Specialist', 'Aggressive', 'Impact'],
+        'stat_weights': {'avg_sr_Death': 1.3, 'bowl_economy_de': 1.3, 'career_sr': 1.2},
+    },
+    'KKR': {
+        'description': 'Mystery spin + aggressive openers. Eden Gardens suits both.',
+        'nationality_boost': {},
+        'playstyle_boost': ['Aggressive', 'Wicket-taker (Strike Bowler)', 'Batting Allrounder'],
+        'stat_weights': {'career_sr': 1.2, 'bowl_wickets': 1.2, 'boundary_rate': 1.2},
+    },
+    'DC': {
+        'description': 'Data-driven. Values South African imports and young Indian talent.',
+        'nationality_boost': {'Indian': 1.1},
+        'playstyle_boost': ['Impact', 'Finisher', 'Powerplay Specialist'],
+        'stat_weights': {'form_score': 1.3, 'career_sr': 1.2},
+    },
+    'SRH': {
+        'description': 'Batting-first franchise. Wants high strike rate batters for high targets.',
+        'nationality_boost': {},
+        'playstyle_boost': ['Aggressive', 'Defensive (Run Stopper)', 'Powerplay Specialist'],
+        'stat_weights': {'career_sr': 1.4, 'bowl_economy': 1.3, 'bowl_dot_pct': 1.2},
+    },
+    'PBKS': {
+        'description': 'Invests heavily in overseas stars, especially Australians.',
+        'nationality_boost': {'Overseas': 1.15},
+        'playstyle_boost': ['Aggressive', 'Impact', 'Death Specialist'],
+        'stat_weights': {'career_sr': 1.3, 'peak_score': 1.2, 'boundary_rate': 1.2},
+    },
+    'RR': {
+        'description': 'Moneyball approach. Finds undervalued Indian domestic talent.',
+        'nationality_boost': {'Indian': 1.2},
+        'playstyle_boost': ['Utility', 'Bowling Allrounder', 'Middle Over Specialist'],
+        'stat_weights': {'value_score': 1.4, 'consistency': 0.7, 'form_score': 1.2},
+    },
+    'GT': {
+        'description': 'Balanced squad building. Strong finishers and death bowling.',
+        'nationality_boost': {},
+        'playstyle_boost': ['Finisher', 'Death Specialist', 'Batting Allrounder'],
+        'stat_weights': {'avg_sr_Death': 1.3, 'high_pressure_avg': 1.2},
+    },
+    'LSG': {
+        'description': 'Aggressive brand of cricket. Rishab Pant anchor + power around him.',
+        'nationality_boost': {},
+        'playstyle_boost': ['Aggressive', 'Impact', 'Wicket-taker (Strike Bowler)'],
+        'stat_weights': {'career_sr': 1.3, 'boundary_rate': 1.2, 'bowl_wickets': 1.1},
+    },
+}
+print(f"Scouting loaded! {len(scouting_profiles)} profiles, "
       f"DNA matrix {dna_scaled.shape}")
 
 # ── HELPER FUNCTIONS ───────────────────────────────────
@@ -515,7 +583,90 @@ def search_players(query: str):
 def get_player_profile(player_name: str):
     career_row = player_career[player_career['player'] == player_name]
     if len(career_row) == 0:
-        return {"error": f"Player {player_name} not found"}
+        # Fallback: check scouting profiles (cross-league players)
+        scout_row = scouting_profiles[scouting_profiles['player'] == player_name]
+        if len(scout_row) == 0:
+            return {"error": f"Player {player_name} not found"}
+        
+        sr = scout_row.iloc[0]
+        
+        # Build a lightweight profile from scouting data
+        batting = None
+        if pd.notna(sr.get('career_avg')) and sr.get('career_avg', 0) > 0:
+            batting = {
+                'runs': 0,
+                'avg': round(float(sr['career_avg']), 2) if pd.notna(sr.get('career_avg')) else 0,
+                'sr': round(float(sr['career_sr']), 2) if pd.notna(sr.get('career_sr')) else 0,
+                'hs': int(sr['peak_score']) if pd.notna(sr.get('peak_score')) else 0,
+                'hs_balls': 0,
+                'fours': 0, 'sixes': 0,
+                'innings': int(sr['matches_played']) if pd.notna(sr.get('matches_played')) else 0,
+            }
+        
+        bowling = None
+        if pd.notna(sr.get('bowl_wickets')) and sr.get('bowl_wickets', 0) > 0:
+            bowling = {
+                'wickets': int(sr['bowl_wickets']),
+                'avg': round(float(sr['bowl_avg']), 2) if pd.notna(sr.get('bowl_avg')) else 0,
+                'economy': round(float(sr['bowl_economy']), 2) if pd.notna(sr.get('bowl_economy')) else 0,
+                'sr': 0,
+                'dotPct': round(float(sr['bowl_dot_pct']), 1) if pd.notna(sr.get('bowl_dot_pct')) else 0,
+                'best': str(int(sr.get('bowl_best_figures', 0))) + '/—' if pd.notna(sr.get('bowl_best_figures')) else '—',
+            }
+        
+        # Phase stats from scouting DNA
+        phase_stats = []
+        is_bowler = bool(sr.get('is_bowler', False)) if pd.notna(sr.get('is_bowler')) else False
+        if is_bowler:
+            for phase, tag in [('Powerplay', 'po'), ('Middle', 'mi'), ('Death', 'de')]:
+                eco_col = f'bowl_economy_{tag}'
+                eco = round(float(sr[eco_col]), 2) if pd.notna(sr.get(eco_col)) else 0
+                phase_stats.append({'phase': phase, 'economy': eco, 'wickets': 0})
+        else:
+            for phase in ['Powerplay', 'Middle', 'Death']:
+                sr_col = f'avg_sr_{phase}'
+                runs_col = f'avg_runs_{phase}'
+                phase_sr = round(float(sr[sr_col]), 1) if pd.notna(sr.get(sr_col)) else 0
+                phase_runs = round(float(sr[runs_col]), 1) if pd.notna(sr.get(runs_col)) else 0
+                phase_stats.append({'phase': phase, 'sr': phase_sr, 'runs': int(phase_runs)})
+        
+        # Scouting-specific data
+        scouting_data = {
+            'scoutingScore': round(float(sr['scouting_score']), 1) if pd.notna(sr.get('scouting_score')) else 0,
+            'performanceRating': round(float(sr['performance_rating']), 1) if pd.notna(sr.get('performance_rating')) else 0,
+            'formRating': round(float(sr['form_rating']), 1) if pd.notna(sr.get('form_rating')) else 0,
+            'impactRating': round(float(sr['impact_rating']), 1) if pd.notna(sr.get('impact_rating')) else 0,
+            'pressureRating': round(float(sr['pressure_rating']), 1) if pd.notna(sr.get('pressure_rating')) else 0,
+            'playstyle': str(sr['playstyle']) if pd.notna(sr.get('playstyle')) else 'Utility',
+            'sourceLeague': str(sr['source_league']) if pd.notna(sr.get('source_league')) else 'Unknown',
+        }
+        
+        nationality = str(sr['nationality']) if pd.notna(sr.get('nationality')) else 'Overseas'
+        player_type = str(sr['player_type']) if pd.notna(sr.get('player_type')) else 'Batsman'
+        
+        return {
+            'name': player_name,
+            'role': player_type,
+            'battingHand': str(sr['batting_hand']) if pd.notna(sr.get('batting_hand')) else 'R',
+            'bowlingStyle': '',
+            'bowlingType': '',
+            'franchise': 'International',
+            'price': None,
+            'acquisition': '',
+            'debut': None,
+            'seasons': int(sr['matches_played']) if pd.notna(sr.get('matches_played')) else 0,
+            'franchiseHistory': [],
+            'batting': batting,
+            'bowling': bowling,
+            'phaseStats': phase_stats,
+            'seasonStats': [],
+            'venueStats': [],
+            'prediction': None,
+            'isBowler': is_bowler,
+            'isInternational': True,
+            'nationality': nationality,
+            'scouting': scouting_data,
+        }
 
     career = career_row.iloc[0]
     meta = player_metadata[player_metadata['player'] == player_name]
@@ -588,28 +739,83 @@ def debug_history(player_name: str):
         "current_franchise": str(row.iloc[0].get('current_franchise', ''))
     }
 def scout_recommend(team=None, playstyle=None, budget_max=None,
-                    min_matches=5, top_n=15):
+                    nationality=None, player_type=None, batting_role=None,
+                    batting_hand=None, bowling_category=None,
+                    bowling_specialty=None, min_matches=5, top_n=15):
     result = scouting_profiles.copy()
     result = result[result['status'].isin(['Active', 'Unsold', 'International'])]
- 
+    result = result[result.get('nationality', pd.Series('Overseas', index=result.index)) != 'Pakistan']
+
     if team:
         full_name = SCOUT_TEAM_FULL.get(team, team)
         result = result[result['current_franchise'] != full_name]
- 
+
+    if nationality and nationality != 'All':
+        result = result[result['nationality'] == nationality]
+
+    if player_type and player_type != 'All':
+        result = result[result['player_type'] == player_type]
+
+    if batting_role and batting_role != 'All':
+        result = result[result['batting_role'] == batting_role]
+
+    if batting_hand and batting_hand != 'All':
+        result = result[result['batting_hand'] == batting_hand]
+
+    if bowling_category and bowling_category != 'All':
+        result = result[result['bowling_category'] == bowling_category]
+
+    if bowling_specialty and bowling_specialty != 'All':
+        result = result[result['bowling_specialty'] == bowling_specialty]
+
     if playstyle and playstyle != 'All':
         result = result[result['playstyle'] == playstyle]
- 
+
     if budget_max is not None and budget_max > 0:
         result = result[
             (result['price_cr'].isna()) | (result['price_cr'] <= budget_max)
         ]
- 
+
     if 'matches_played' in result.columns:
         result = result[result['matches_played'] >= min_matches]
- 
+
     result = result[result['scouting_score'] > 15]
-    result = result.nlargest(top_n, 'scouting_score')
- 
+    # Boost unsold and young players (scouting priority)
+    result = result.copy()
+    if 'adjusted_score' not in result.columns:
+        result['adjusted_score'] = result['scouting_score']
+    
+    unsold_mask = result['status'] == 'Unsold'
+    result.loc[unsold_mask, 'adjusted_score'] = result.loc[unsold_mask, 'adjusted_score'] * 1.2
+    
+    intl_mask = result['status'] == 'International'
+    result.loc[intl_mask, 'adjusted_score'] = result.loc[intl_mask, 'adjusted_score'] * 1.1
+    
+    if 'seasons_played' in result.columns:
+        young_mask = result['seasons_played'].fillna(0) <= 3
+        result.loc[young_mask, 'adjusted_score'] = result.loc[young_mask, 'adjusted_score'] * 1.1
+    # Apply team-specific scoring boost if a team is selected
+    if team and team in TEAM_PROFILES:
+        profile = TEAM_PROFILES[team]
+        result = result.copy()
+        result['adjusted_score'] = result['scouting_score']
+
+        # Nationality boost
+        for nat, boost in profile.get('nationality_boost', {}).items():
+            nat_mask = result['nationality'] == nat
+            result.loc[nat_mask, 'adjusted_score'] = result.loc[nat_mask, 'adjusted_score'] * boost
+
+        # Playstyle boost
+        preferred = profile.get('playstyle_boost', [])
+        if preferred:
+            ps_mask = result['playstyle'].isin(preferred)
+            bs_mask = result['bowling_specialty'].isin(preferred) if 'bowling_specialty' in result.columns else False
+            result.loc[ps_mask | bs_mask, 'adjusted_score'] = result.loc[ps_mask | bs_mask, 'adjusted_score'] * 1.15
+
+        result = result.nlargest(top_n, 'adjusted_score')
+    else:
+        result = result.nlargest(top_n, 'adjusted_score')
+
     players = []
     for _, row in result.iterrows():
         player = {
@@ -621,13 +827,18 @@ def scout_recommend(team=None, playstyle=None, budget_max=None,
             'impactRating': round(float(row['impact_rating']), 1) if pd.notna(row['impact_rating']) else 0,
             'pressureRating': round(float(row['pressure_rating']), 1) if pd.notna(row['pressure_rating']) else 0,
             'playstyle': str(row['playstyle']) if pd.notna(row['playstyle']) else 'Utility',
+            'playerType': str(row['player_type']) if pd.notna(row.get('player_type')) else '',
+            'battingRole': str(row['batting_role']) if pd.notna(row.get('batting_role')) else '',
+            'battingHand': str(row['batting_hand']) if pd.notna(row.get('batting_hand')) else '',
+            'bowlingCategory': str(row['bowling_category']) if pd.notna(row.get('bowling_category')) else '',
+            'bowlingSpecialty': str(row['bowling_specialty']) if pd.notna(row.get('bowling_specialty')) else '',
+            'nationality': str(row['nationality']) if pd.notna(row.get('nationality')) else 'Overseas',
             'careerAvg': round(float(row['career_avg']), 1) if pd.notna(row['career_avg']) else 0,
             'careerSR': round(float(row['career_sr']), 1) if pd.notna(row['career_sr']) else 0,
             'price': round(float(row['price_cr']), 2) if pd.notna(row['price_cr']) else None,
             'valueScore': round(float(row['value_score']), 1) if pd.notna(row['value_score']) else None,
             'status': str(row['status']) if pd.notna(row['status']) else '',
             'franchise': str(row['current_franchise']) if pd.notna(row['current_franchise']) else '',
-            'seasons': int(row['seasons_played']) if pd.notna(row.get('seasons_played')) else None,
             'matchesPlayed': int(row['matches_played']) if pd.notna(row.get('matches_played')) else 0,
             'isBowler': bool(row.get('is_bowler', False)) if pd.notna(row.get('is_bowler')) else False,
             'isAllrounder': bool(row.get('is_allrounder', False)) if pd.notna(row.get('is_allrounder')) else False,
@@ -715,6 +926,12 @@ class ScoutingRequest(BaseModel):
     team: Optional[str] = None
     playstyle: Optional[str] = None
     budgetMax: Optional[float] = None
+    nationality: Optional[str] = None
+    playerType: Optional[str] = None
+    battingRole: Optional[str] = None
+    battingHand: Optional[str] = None
+    bowlingCategory: Optional[str] = None
+    bowlingSpecialty: Optional[str] = None
     topN: Optional[int] = 15
  
  
@@ -731,14 +948,15 @@ def scouting_recommend(req: ScoutingRequest):
         team=req.team,
         playstyle=req.playstyle,
         budget_max=req.budgetMax,
+        nationality=req.nationality,
+        player_type=req.playerType,
+        batting_role=req.battingRole,
+        batting_hand=req.battingHand,
+        bowling_category=req.bowlingCategory,
+        bowling_specialty=req.bowlingSpecialty,
         top_n=req.topN or 15,
     )
     return {
-        'filters': {
-            'team': req.team,
-            'playstyle': req.playstyle,
-            'budgetMax': req.budgetMax,
-        },
         'count': len(players),
         'players': players,
     }
@@ -783,3 +1001,32 @@ def scouting_value_rankings(top_n: int = 20, min_matches: int = 10):
 @app.get("/scouting/teams")
 def get_teams():
     return [{'abbr': a, 'name': n} for a, n in SCOUT_TEAM_FULL.items()]
+
+@app.get("/scouting/filters")
+def get_scouting_filters():
+    active = scouting_profiles[scouting_profiles['status'].isin(['Active', 'Unsold', 'International'])]
+    
+    def counts(col):
+        return [{'name': k, 'count': int(v)} 
+                for k, v in active[col].value_counts().items() 
+                if pd.notna(k)]
+    
+    return {
+        'playerTypes': counts('player_type') if 'player_type' in active.columns else [],
+        'battingRoles': counts('batting_role') if 'batting_role' in active.columns else [],
+        'bowlingCategories': counts('bowling_category') if 'bowling_category' in active.columns else [],
+        'bowlingSpecialties': counts('bowling_specialty') if 'bowling_specialty' in active.columns else [],
+        'nationalities': counts('nationality') if 'nationality' in active.columns else [],
+        'playstyles': counts('playstyle') if 'playstyle' in active.columns else [],
+    }
+
+@app.get("/scouting/team-profile/{team}")
+def get_team_profile(team: str):
+    if team in TEAM_PROFILES:
+        return {
+            'team': team,
+            'fullName': SCOUT_TEAM_FULL.get(team, team),
+            'description': TEAM_PROFILES[team]['description'],
+            'preferredPlaystyles': TEAM_PROFILES[team].get('playstyle_boost', []),
+        }
+    return {'error': 'Team not found'}

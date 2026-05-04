@@ -1,0 +1,5 @@
+ok i have understood that and implemented it but there are stil some issues. 
+
+1. The attributes for player type, batting role, bowling type and bowling speciality have not loaded. it is just showing all. Batting hand has loaded but i need a separate one for bowling hand also.
+
+2. All of the players are still not loaded. It is only showing 163 Indians and 75 Overseas It is not even the complete ipl players let alone the 4000 players for scouting engine
