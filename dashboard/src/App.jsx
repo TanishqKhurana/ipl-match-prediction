@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom'
 import PlayerIntelligence from './pages/PlayerIntelligence'
 import PlayerScouting from './pages/PlayerScouting'
+import AuctionIntelligence from './pages/AuctionIntelligence'
 import './App.css'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Player Intel', icon: '👤' },
   { path: '/scouting', label: 'Scouting', icon: '🔍' },
+   { path: '/auction', label: 'Auction Intel', icon: '💰' },
   { path: '/team', label: 'Team Builder', icon: '🧩' },
   { path: '/match', label: 'Match Advisor', icon: '⚡' },
   { path: '/opponent', label: 'Opponent', icon: '🎯' },
@@ -78,6 +80,7 @@ export default function App() {
             <Route path="/team" element={<ComingSoon title="Team Builder" icon="🧩" />} />
             <Route path="/match" element={<ComingSoon title="Match Advisor" icon="⚡" />} />
             <Route path="/opponent" element={<ComingSoon title="Opponent Analysis" icon="🎯" />} />
+            <Route path="/auction" element={<AuctionIntelligence />} />
           </Routes>
         </main>
       </div>

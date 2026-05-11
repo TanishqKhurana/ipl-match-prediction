@@ -7,7 +7,7 @@ from scipy import stats
 from pydantic import BaseModel
 from typing import Optional
 from sklearn.metrics.pairwise import cosine_similarity
-
+import json
 #uvicorn main:app --reload --port 8000
 
 app = FastAPI(title="IPL Intelligence API", version="1.0.0")
@@ -115,6 +115,10 @@ print(f"Sample players: {player_career['player'].tolist()[:5]}")
 scouting_profiles = pd.read_csv('../data/scouting_profiles.csv')
 dna_scaled = np.load('../data/dna_matrix_scaled.npy')
 player_names_idx = np.load('../data/player_names_index.npy', allow_pickle=True)
+# ── Auction intelligence data ──
+team_squads = pd.read_csv('../data/team_squads.csv')
+with open('../data/squad_analysis.json', 'r') as f:
+    squad_analysis_data = json.load(f)
  
 scout_sim_matrix = cosine_similarity(dna_scaled)
 scout_player_index = {name: i for i, name in enumerate(player_names_idx)}
@@ -1030,3 +1034,302 @@ def get_team_profile(team: str):
             'preferredPlaystyles': TEAM_PROFILES[team].get('playstyle_boost', []),
         }
     return {'error': 'Team not found'}
+
+# ══════════════════════════════════════════════════════════════
+# MODULE 2B — AUCTION INTELLIGENCE ENDPOINTS
+# ══════════════════════════════════════════════════════════════
+
+TEAM_NAME_MAP = {
+    'MI': 'Mumbai Indians', 'CSK': 'Chennai Super Kings',
+    'RCB': 'Royal Challengers Bengaluru', 'KKR': 'Kolkata Knight Riders',
+    'DC': 'Delhi Capitals', 'SRH': 'Sunrisers Hyderabad',
+    'RR': 'Rajasthan Royals', 'PBKS': 'Punjab Kings',
+    'GT': 'Gujarat Titans', 'LSG': 'Lucknow Super Giants',
+}
+TEAM_ABBR_MAP = {v: k for k, v in TEAM_NAME_MAP.items()}
+
+
+def resolve_team(team_input: str) -> str:
+    """Accept either abbreviation or full name, return full name."""
+    if team_input in TEAM_NAME_MAP:
+        return TEAM_NAME_MAP[team_input]
+    if team_input in TEAM_ABBR_MAP:
+        return team_input
+    for full_name in TEAM_ABBR_MAP:
+        if team_input.lower() in full_name.lower():
+            return full_name
+    return team_input
+
+
+@app.get("/auction/squad/{team}")
+def get_auction_squad(team: str):
+    """Full squad with retention recommendations."""
+    team_name = resolve_team(team)
+    squad = team_squads[team_squads['current_franchise'] == team_name]
+
+    if squad.empty:
+        return {"error": f"Team '{team}' not found", "available": list(TEAM_NAME_MAP.keys())}
+
+    players = []
+    for _, row in squad.sort_values('retention_value', ascending=False).iterrows():
+        player_data = {
+            'player': row['player'],
+            'price_cr': round(float(row['price_cr']), 2) if pd.notna(row.get('price_cr')) else 0.3,
+            'role': row.get('clean_role', 'Unknown'),
+            'is_overseas': bool(row.get('is_overseas', False)),
+            'nationality': row.get('nationality', 'Unknown'),
+            'scouting_score': round(float(row['scouting_score']), 1) if pd.notna(row.get('scouting_score')) else None,
+            'recommendation': row.get('recommendation', 'RELEASE'),
+            'retention_value': round(float(row['retention_value']), 1) if pd.notna(row.get('retention_value')) else 0,
+            'how_acquired': row.get('how_acquired', ''),
+            'playstyle': row.get('playstyle', '') if pd.notna(row.get('playstyle')) else '',
+            'batting_hand': row.get('batting_hand', '') if pd.notna(row.get('batting_hand')) else '',
+            'bowling_style': row.get('bowling_style', '') if pd.notna(row.get('bowling_style')) else '',
+            'batting_role': row.get('batting_role', '') if pd.notna(row.get('batting_role')) else '',
+        }
+
+        # Stats — only include if available
+        for stat, key in [('career_avg', 'career_avg'), ('career_sr', 'career_sr'),
+                          ('bowl_economy', 'bowl_economy'), ('bowl_wickets', 'bowl_wickets')]:
+            val = row.get(key)
+            if pd.notna(val):
+                player_data[stat] = round(float(val), 2) if stat != 'bowl_wickets' else int(val)
+            else:
+                player_data[stat] = None
+
+        # Score breakdown
+        player_data['score_breakdown'] = {}
+        for field in ['norm_performance', 'norm_form', 'price_efficiency', 
+                      'irreplaceability', 'squad_importance']:
+            val = row.get(field)
+            player_data['score_breakdown'][field] = round(float(val), 1) if pd.notna(val) else 0
+
+        players.append(player_data)
+
+    return {
+        'team': team_name,
+        'team_abbr': TEAM_ABBR_MAP.get(team_name, team),
+        'squad_size': len(players),
+        'total_spend': round(float(squad['price_cr'].sum()), 2),
+        'overseas_count': int(squad['is_overseas'].sum()),
+        'players': players,
+    }
+
+
+@app.get("/auction/squad-analysis/{team}")
+def get_squad_analysis(team: str):
+    """Deep squad gaps analysis — strengths, weaknesses, priority buys."""
+    team_name = resolve_team(team)
+
+    if team_name not in squad_analysis_data:
+        return {"error": f"Analysis not found for '{team}'",
+                "available": list(TEAM_NAME_MAP.keys())}
+
+    return squad_analysis_data[team_name]
+
+
+class RetentionOverride(BaseModel):
+    team: str
+    overrides: dict  # {"player_name": "RETAIN" | "RTM" | "RELEASE"}
+
+
+@app.post("/auction/simulate-retention")
+def simulate_retention(data: RetentionOverride):
+    """
+    Simulate retention changes — user overrides recommendations,
+    API recalculates purse and composition.
+    """
+    team_name = resolve_team(data.team)
+    squad = team_squads[team_squads['current_franchise'] == team_name].copy()
+
+    if squad.empty:
+        return {"error": f"Team '{team_name}' not found"}
+
+    # Apply overrides
+    for player, new_rec in data.overrides.items():
+        mask = squad['player'] == player
+        if mask.any():
+            squad.loc[mask, 'recommendation'] = new_rec
+
+    # Recalculate purse
+    TOTAL_PURSE = 125.0  # IPL 2026 salary cap
+    retained = squad[squad['recommendation'] == 'RETAIN']
+    rtm = squad[squad['recommendation'] == 'RTM']
+    released = squad[squad['recommendation'].isin(['RELEASE', 'BUY BACK'])]
+
+    retain_cost = float(retained['price_cr'].sum())
+    rtm_cost = float(rtm['price_cr'].sum())
+    released_value = float(released['price_cr'].sum())
+    remaining_purse = TOTAL_PURSE - retain_cost
+
+    # Post-retention composition
+    kept = squad[squad['recommendation'].isin(['RETAIN', 'RTM'])]
+    kept_roles = kept['clean_role'].value_counts().to_dict()
+    kept_overseas = int(kept['is_overseas'].sum())
+
+    # Slots to fill
+    target_squad_size = 22
+    slots_to_fill = max(0, target_squad_size - len(kept))
+
+    # Priority needs
+    priority_buys = []
+    if kept_roles.get('Bowler', 0) < 3:
+        priority_buys.append({'role': 'Bowler', 'priority': 'HIGH',
+                              'current': kept_roles.get('Bowler', 0), 'need': 3})
+    if kept_roles.get('Batter', 0) + kept_roles.get('WK-Batter', 0) < 3:
+        bats = kept_roles.get('Batter', 0) + kept_roles.get('WK-Batter', 0)
+        priority_buys.append({'role': 'Batter', 'priority': 'HIGH',
+                              'current': bats, 'need': 3})
+    if kept_roles.get('All-Rounder', 0) < 1:
+        priority_buys.append({'role': 'All-Rounder', 'priority': 'MEDIUM',
+                              'current': kept_roles.get('All-Rounder', 0), 'need': 1})
+    if kept_roles.get('WK-Batter', 0) < 1:
+        priority_buys.append({'role': 'WK-Batter', 'priority': 'HIGH',
+                              'current': 0, 'need': 1})
+
+    return {
+        'team': team_name,
+        'retain_count': len(retained),
+        'rtm_count': len(rtm),
+        'release_count': len(released),
+        'retain_cost': round(retain_cost, 2),
+        'rtm_cost': round(rtm_cost, 2),
+        'released_value': round(released_value, 2),
+        'remaining_purse': round(remaining_purse, 2),
+        'post_retention_roles': {k: int(v) for k, v in kept_roles.items()},
+        'overseas_in_kept': kept_overseas,
+        'slots_to_fill': slots_to_fill,
+        'priority_buys': priority_buys,
+        'retained_players': retained[['player', 'price_cr', 'clean_role', 'is_overseas']].to_dict('records'),
+        'rtm_players': rtm[['player', 'price_cr', 'clean_role', 'is_overseas']].to_dict('records'),
+    }
+
+
+@app.get("/auction/replacements/{player_name}")
+def get_replacements(player_name: str, team: str = None, top_n: int = 5):
+    """
+    Find replacement candidates for a released player.
+    Matches role + bowling style + nationality, prioritizes IPL players.
+    """
+    player_row = team_squads[team_squads['player'] == player_name]
+    if player_row.empty:
+        return {"error": f"Player '{player_name}' not found in squad data"}
+
+    player = player_row.iloc[0]
+    role = player.get('clean_role', 'Batter')
+    is_overseas = bool(player.get('is_overseas', False))
+    price = float(player.get('price_cr', 0.3))
+    bowling_style = str(player.get('bowling_style', '')) if pd.notna(player.get('bowling_style')) else ''
+    bowling_cat = str(player.get('bowling_category', '')) if pd.notna(player.get('bowling_category')) else ''
+
+    pool = scouting_profiles.copy()
+    if 'status' in pool.columns:
+        pool = pool[pool['status'].isin(['Active', 'Unsold', 'International'])]
+
+    # ── Strict role matching ──
+    if role == 'Bowler':
+        # Pure bowlers only — exclude all-rounders
+        if 'is_bowler' in pool.columns and 'is_allrounder' in pool.columns:
+            pool = pool[(pool['is_bowler'] == True) & (pool['is_allrounder'] == False)]
+        elif 'player_type' in pool.columns:
+            pool = pool[pool['player_type'] == 'Bowler']
+    elif role == 'All-Rounder':
+        if 'is_allrounder' in pool.columns:
+            pool = pool[pool['is_allrounder'] == True]
+    elif role == 'WK-Batter':
+        # Keeper-batters — look for batters or keepers
+        if 'player_type' in pool.columns:
+            pool = pool[pool['player_type'].isin(['Wicket Keeper', 'Batsman'])]
+        elif 'is_bowler' in pool.columns:
+            pool = pool[pool['is_bowler'] == False]
+    else:
+        # Batter
+        if 'is_bowler' in pool.columns and 'is_allrounder' in pool.columns:
+            pool = pool[(pool['is_bowler'] == False) & (pool['is_allrounder'] == False)]
+
+    # ── Bowling style matching for bowlers ──
+    style_bonus = pd.Series(0.0, index=pool.index)
+    if role in ['Bowler', 'All-Rounder'] and bowling_style:
+        is_pace = bowling_style.upper() in ['RF', 'RFM', 'LF', 'LFM', 'LMF']
+        is_spin = bowling_style.upper() in ['OB', 'LB', 'LBG', 'SLA', 'SLAC', 'LWS', 'ROB']
+        is_left = bowling_style.upper() in ['LF', 'LFM', 'LMF', 'SLA', 'SLAC', 'LWS']
+
+        if 'bowling_style' in pool.columns:
+            for idx, row in pool.iterrows():
+                ps = str(row.get('bowling_style', '')).upper() if pd.notna(row.get('bowling_style')) else ''
+                if not ps:
+                    continue
+                ps_pace = ps in ['RF', 'RFM', 'LF', 'LFM', 'LMF']
+                ps_spin = ps in ['OB', 'LB', 'LBG', 'SLA', 'SLAC', 'LWS', 'ROB']
+                ps_left = ps in ['LF', 'LFM', 'LMF', 'SLA', 'SLAC', 'LWS']
+
+                # Same broad category (pace/spin) = +10
+                if is_pace and ps_pace:
+                    style_bonus.at[idx] = 10
+                elif is_spin and ps_spin:
+                    style_bonus.at[idx] = 10
+                # Same arm (left/right) = +5 extra
+                if is_left and ps_left:
+                    style_bonus.at[idx] += 5
+
+    # ── Nationality matching ──
+    if 'nationality' in pool.columns:
+        if not is_overseas:
+            pool = pool[pool['nationality'] == 'Indian']
+        else:
+            pool = pool[pool['nationality'] == 'Overseas']
+
+    # ── Exclude current team players ──
+    if team:
+        team_name = resolve_team(team)
+        existing = team_squads[team_squads['current_franchise'] == team_name]['player'].tolist()
+        pool = pool[~pool['player'].isin(existing)]
+        style_bonus = style_bonus.reindex(pool.index, fill_value=0)
+
+    # ── Scoring: scouting + style match + IPL priority ──
+    if 'scouting_score' in pool.columns:
+        pool = pool[pool['scouting_score'].notna()].copy()
+        style_bonus = style_bonus.reindex(pool.index, fill_value=0)
+
+        pool['replacement_score'] = pool['scouting_score'] + style_bonus
+
+        # IPL players (Active/Unsold) get priority over International
+        if 'status' in pool.columns:
+            pool['replacement_score'] = pool['replacement_score'] + pool['status'].apply(
+                lambda s: 15 if s in ['Active', 'Unsold'] else 0
+            )
+
+        # Cheaper = bonus
+        if 'price_cr' in pool.columns:
+            savings = (price - pool['price_cr'].fillna(0.3)).clip(lower=0)
+            pool['replacement_score'] = pool['replacement_score'] + savings * 1.5
+
+    sort_col = 'replacement_score' if 'replacement_score' in pool.columns else 'scouting_score'
+    pool = pool.nlargest(top_n, sort_col)
+
+    replacements = []
+    for _, r in pool.iterrows():
+        rep = {'player': r['player']}
+        for field in ['scouting_score', 'price_cr', 'career_avg', 'career_sr',
+                      'bowl_economy', 'bowl_wickets']:
+            val = r.get(field)
+            if field == 'bowl_wickets':
+                rep[field] = int(val) if pd.notna(val) else None
+            else:
+                rep[field] = round(float(val), 2) if pd.notna(val) else None
+        rep['nationality'] = r.get('nationality', 'Unknown')
+        rep['playstyle'] = r.get('playstyle', '') if pd.notna(r.get('playstyle')) else ''
+        rep['status'] = r.get('status', '')
+        rep['player_type'] = r.get('player_type', '') if pd.notna(r.get('player_type')) else ''
+        rep['bowling_category'] = r.get('bowling_category', '') if pd.notna(r.get('bowling_category')) else ''
+        rep['bowling_specialty'] = r.get('bowling_specialty', '') if pd.notna(r.get('bowling_specialty')) else ''
+        replacements.append(rep)
+
+    return {
+        'releasing': player_name,
+        'role': role,
+        'price_cr': round(price, 2),
+        'is_overseas': is_overseas,
+        'bowling_style': bowling_style,
+        'replacements': replacements,
+    }
