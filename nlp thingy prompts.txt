@@ -1,0 +1,61 @@
+Player DNA (Radar Charts):
+
+Kohli DNA — shows the complete batting profile, great visual
+Bumrah radar — shows bowling DNA, completely different shape than Kohli
+Dhoni DNA — the finisher profile, high death SR
+
+Career Trends (Line Charts):
+
+Kohli runs trend — shows the legendary 2016 peak and comeback in 2023-24
+Gayle sixes per season — the Universe Boss era visualized
+Dhoni strike rate trend — shows how he evolved from accumulator to finisher
+
+Head-to-Head Comparisons (Grouped Bar):
+
+compare Kohli and Rohit runs by phase — the great debate, settled by data
+compare Bumrah and Archer wickets per season — pace rivalry
+compare Kohli and ABD strike rate by phase — two legends compared
+compare Dhoni and Buttler average per season — keeper-batter evolution
+
+Leaderboards (Horizontal Bar):
+
+top 10 run scorers in 2024 — recent season leaders
+top 10 sixes — all-time six hitters
+top 5 highest strike rate in 2025 — most explosive recent batters
+top 10 wickets — all-time leading wicket takers
+
+Phase Breakdowns (Pie/Donut):
+
+Kohli runs breakdown — where does he score? (mostly middle overs)
+Bumrah wickets breakdown — when does he strike?
+Russell runs breakdown — should show heavy death overs contribution
+
+Venue Analysis (Horizontal Bar):
+
+Kohli venue stats — where does he dominate?
+Bumrah venue stats — his best grounds
+
+Recent Form (Bar):
+
+Bumrah last 5 matches — current form check
+Kohli last 10 matches — is he still performing?
+
+Scatter Plot:
+
+SR vs average scatter plot in 2024 — shows where every batter sits on the impact matrix
+
+Career Summary (Stat Cards):
+
+Kohli career stats — the full stat card
+AB de Villiers career stats — legend overview
+
+Power Demo Sequence (use this exact order for your examiner):
+
+Start with Kohli DNA → "This is our player profiling radar, computed from ball-by-ball data"
+Then Bumrah radar → "Notice how a bowler's DNA shape is completely different"
+Then compare Kohli and Rohit runs by phase → "The system understands natural language comparisons"
+Then top 10 run scorers in 2024 → "Leaderboards across any metric and season"
+Then Kohli runs trend → "Career trajectory with trend visualization"
+Then Kohli runs breakdown → "Phase-wise contribution analysis"
+Then SR vs average scatter plot in 2024 → "Multi-dimensional analysis — bubble size represents total runs"
+Finally click on a player name from the leaderboard → "And any player links directly to their full profile"

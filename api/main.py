@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sklearn.metrics.pairwise import cosine_similarity
 import json
+from query_parser import QueryParser, SUGGESTED_QUERIES
 #uvicorn main:app --reload --port 8000
 
 app = FastAPI(title="IPL Intelligence API", version="1.0.0")
@@ -30,6 +31,8 @@ venue_bowl_stats = pd.read_csv('../data/venue_player_bowling_stats.csv')
 player_career = pd.read_csv('../data/player_career_info.csv')
 player_metadata = pd.read_csv('../data/player_metadata.csv')
 opposition_stats = pd.read_csv('../data/opposition_stats.csv')
+# ── NLP Query Parser ──
+query_parser = QueryParser(master)  # use whatever variable name your master DataFrame has
 
 # Fix column names
 if 'avg' in venue_stats.columns:
@@ -1333,3 +1336,14 @@ def get_replacements(player_name: str, team: str = None, top_n: int = 5):
         'bowling_style': bowling_style,
         'replacements': replacements,
     }
+
+@app.get("/query")
+def handle_query(prompt: str):
+    """NLP query-to-chart endpoint."""
+    result = query_parser.parse(prompt)
+    return result
+
+@app.get("/query/suggestions")
+def get_suggestions():
+    """Return suggested example queries."""
+    return {"suggestions": SUGGESTED_QUERIES}
