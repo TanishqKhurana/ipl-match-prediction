@@ -5,82 +5,107 @@ import PlayerScouting from './pages/PlayerScouting'
 import AuctionIntelligence from './pages/AuctionIntelligence'
 import './App.css'
 
+/* ── SVG Icons ────────────────────────────────
+   Clean, consistent, and they inherit color from
+   the parent (.nav-link), so they turn gold when 
+   active automatically via CSS currentColor.
+   ──────────────────────────────────────────── */
+
+const Icons = {
+  player: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  search: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  ),
+  auction: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+}
+
+/* ── Only working modules in the sidebar ──── */
 const NAV_ITEMS = [
-  { path: '/', label: 'Player Intel', icon: '👤' },
-  { path: '/scouting', label: 'Scouting', icon: '🔍' },
-   { path: '/auction', label: 'Auction Intel', icon: '💰' },
-  { path: '/team', label: 'Team Builder', icon: '🧩' },
-  { path: '/match', label: 'Match Advisor', icon: '⚡' },
-  { path: '/opponent', label: 'Opponent', icon: '🎯' },
+  { path: '/',         label: 'Player Intel',   icon: Icons.player },
+  { path: '/scouting', label: 'Scouting',       icon: Icons.search },
+  { path: '/auction',  label: 'Auction Intel',  icon: Icons.auction },
 ]
 
+
+/* ── Sidebar Component ────────────────────── */
 function Sidebar() {
   return (
-    <div style={{
-      width: '220px', minHeight: '100vh', background: 'var(--bg-secondary)',
-      borderRight: '1px solid var(--border)', display: 'flex',
-      flexDirection: 'column', padding: '24px 12px', gap: '4px',
-      position: 'fixed', left: 0, top: 0, zIndex: 100
-    }}>
+    <aside className="sidebar">
       {/* Logo */}
-      <div style={{ padding: '0 8px 24px', borderBottom: '1px solid var(--border)', marginBottom: '8px' }}>
-        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '22px', fontWeight: 700, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
-          IPL INTEL
-        </div>
-        <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '2px', marginTop: '2px' }}>
-          FRANCHISE INTELLIGENCE
-        </div>
+      <div className="sidebar-logo">
+        <h1>IPL INTEL</h1>
+        <span className="subtitle">FRANCHISE INTELLIGENCE</span>
       </div>
 
-      {/* Nav Items */}
-      {NAV_ITEMS.map(item => (
-        <NavLink key={item.path} to={item.path} end={item.path === '/'}
-          style={({ isActive }) => ({
-            display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '10px 12px', borderRadius: '8px', textDecoration: 'none',
-            fontSize: '13px', fontWeight: 500, transition: 'all 0.18s',
-            background: isActive ? 'rgba(245,158,11,0.12)' : 'transparent',
-            color: isActive ? 'var(--accent-gold)' : 'var(--text-secondary)',
-            borderLeft: isActive ? '3px solid var(--accent-gold)' : '3px solid transparent',
-          })}>
-          <span style={{ fontSize: '16px' }}>{item.icon}</span>
-          {item.label}
-        </NavLink>
-      ))}
+      {/* Section label */}
+      <div className="sidebar-section">Modules</div>
 
-      {/* Bottom info */}
-      <div style={{ marginTop: 'auto', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>DATA COVERAGE</div>
-        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>IPL 2008–2025</div>
-        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>278K+ deliveries</div>
+      {/* Navigation */}
+      <nav className="sidebar-nav">
+        {NAV_ITEMS.map(item => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === '/'}
+            className={({ isActive }) =>
+              `nav-link${isActive ? ' active' : ''}`
+            }
+          >
+            {item.icon}
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="sidebar-footer">
+        <div className="footer-label">Data Coverage</div>
+        <div className="footer-value">IPL 2008–2025</div>
+        <div className="footer-sub">278K+ deliveries · 2300+ players scouted</div>
       </div>
-    </div>
+    </aside>
   )
 }
 
-function ComingSoon({ title, icon }) {
+
+/* ── Coming Soon placeholder ──────────────── */
+function ComingSoon({ title }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '16px' }}>
-      <div style={{ fontSize: '48px' }}>{icon}</div>
-      <div style={{ fontSize: '24px', fontFamily: 'Rajdhani, sans-serif', fontWeight: 700, color: 'var(--text-secondary)' }}>{title}</div>
-      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Coming soon — module under construction</div>
+    <div className="coming-soon page-enter">
+      <div className="title">{title}</div>
+      <div className="subtitle">This module is under development</div>
     </div>
   )
 }
 
+
+/* ── App Root ─────────────────────────────── */
 export default function App() {
   return (
     <Router>
-      <div style={{ display: 'flex' }}>
+      <div className="app-layout">
         <Sidebar />
-        <main style={{ marginLeft: '220px', flex: 1, minHeight: '100vh', padding: '32px' }}>
+        <main className="app-main">
           <Routes>
             <Route path="/" element={<PlayerIntelligence />} />
             <Route path="/scouting" element={<PlayerScouting />} />
-            <Route path="/team" element={<ComingSoon title="Team Builder" icon="🧩" />} />
-            <Route path="/match" element={<ComingSoon title="Match Advisor" icon="⚡" />} />
-            <Route path="/opponent" element={<ComingSoon title="Opponent Analysis" icon="🎯" />} />
             <Route path="/auction" element={<AuctionIntelligence />} />
+            {/* Routes preserved so direct URLs don't break */}
+            <Route path="/team" element={<ComingSoon title="Team Builder" />} />
+            <Route path="/match" element={<ComingSoon title="Match Advisor" />} />
+            <Route path="/opponent" element={<ComingSoon title="Opponent Analysis" />} />
           </Routes>
         </main>
       </div>

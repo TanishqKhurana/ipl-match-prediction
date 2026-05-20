@@ -560,7 +560,12 @@ function QueryChart({ result, onPlayerClick }) {
     </div>
   )
 }
-        
+
+
+/* ════════════════════════════════════════════
+   CHAT INTERFACE — Redesigned as dashboard
+   ════════════════════════════════════════════ */
+
 function ChatInterface({ onSelectPlayer }) {
   var messagesEndRef = useRef(null)
   var inputRef = useRef(null)
@@ -597,7 +602,6 @@ function ChatInterface({ onSelectPlayer }) {
     setSearchResults([])
 
     if (isAnalyticsQuery(q)) {
-      // Analytics query
       setMessages(function(prev) { return prev.concat([{ type: 'query', text: q }]) })
       setLoading(true)
       fetch(API + '/query?prompt=' + encodeURIComponent(q))
@@ -611,7 +615,6 @@ function ChatInterface({ onSelectPlayer }) {
           setLoading(false)
         })
     } else {
-      // Player search — navigate to profile
       onSelectPlayer(q)
     }
   }
@@ -643,143 +646,17 @@ function ChatInterface({ onSelectPlayer }) {
   var isEmpty = messages.length === 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', position: 'relative' }}>
-      <style>{[
-        '@keyframes fadeIn { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }',
-        '.chat-suggest:hover { background: rgba(245,158,11,0.15) !important; color: var(--accent-gold) !important; border-color: var(--accent-gold) !important; }',
-        '.chat-iq:hover { background: rgba(99,102,241,0.15) !important; color: #818cf8 !important; border-color: #6366f1 !important; }',
-        '.result-item:hover { background: rgba(255,255,255,0.06) !important; }',
-      ].join('\n')}</style>
-
-      {/* Messages area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 0' }}>
-        {isEmpty && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center', animation: 'fadeIn 0.5s ease' }}>
-            <div style={{ fontSize: 48, fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--accent-gold)', letterSpacing: 4, lineHeight: 1 }}>
-              IPL INTEL
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: 5, marginTop: 8, fontFamily: 'DM Mono, monospace' }}>
-              FRANCHISE INTELLIGENCE SYSTEM
-            </div>
-
-            <div style={{ marginTop: 36, maxWidth: 600 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 2, marginBottom: 12, fontFamily: 'DM Mono, monospace' }}>POPULAR PLAYERS</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {SUGGESTED.map(function(p) {
-                  return (
-                    <button key={p} className="chat-suggest" onClick={function() { onSelectPlayer(p) }}
-                      style={{ padding: '7px 16px', borderRadius: 20, cursor: 'pointer', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13, transition: 'all 0.18s', fontWeight: 500, fontFamily: 'DM Sans, sans-serif' }}>
-                      {p}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 24, maxWidth: 600 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 2, marginBottom: 12, fontFamily: 'DM Mono, monospace' }}>ASK INTEL</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {QUERY_SUGGESTIONS.slice(0, 8).map(function(q) {
-                  return (
-                    <button key={q} className="chat-iq" onClick={function() { handleSuggestion(q) }}
-                      style={{ padding: '7px 14px', borderRadius: 20, cursor: 'pointer', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', color: '#818cf8', fontSize: 12, transition: 'all 0.18s', fontWeight: 500, fontFamily: 'DM Sans, sans-serif' }}>
-                      {q}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 48, display: 'flex', gap: 48 }}>
-              {[['761', 'PLAYERS'], ['278K+', 'DELIVERIES'], ['18', 'SEASONS'], ['2008-2025', 'COVERAGE']].map(function(item) {
-                return (
-                  <div key={item[1]} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'Rajdhani, sans-serif' }}>{item[0]}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 2, marginTop: 3, fontFamily: 'DM Mono, monospace' }}>{item[1]}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Chat messages */}
-        {messages.map(function(msg, i) {
-          if (msg.type === 'query') {
-            return (
-              <div key={i} style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12, animation: 'fadeIn 0.3s ease' }}>
-                <div style={{
-                  background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)',
-                  borderRadius: '16px 16px 4px 16px', padding: '10px 18px', maxWidth: '70%',
-                  fontSize: 14, color: 'var(--accent-gold)', fontWeight: 500
-                }}>
-                  {msg.text}
-                </div>
-              </div>
-            )
-          }
-          if (msg.type === 'chart') {
-            return (
-              <div key={i} style={{
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                borderRadius: 16, padding: 24, marginBottom: 16, maxWidth: '95%',
-                animation: 'fadeIn 0.4s ease',
-                borderTop: '2px solid var(--accent-gold)'
-              }}>
-                <QueryChart result={msg.data} onPlayerClick={onSelectPlayer} />
-              </div>
-            )
-          }
-          return null
-        })}
-
-        {loading && (
-          <div style={{ display: 'flex', gap: 6, padding: '12px 0', animation: 'fadeIn 0.2s ease' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-gold)', opacity: 0.4, animation: 'pulse 1s infinite' }} />
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-gold)', opacity: 0.4, animation: 'pulse 1s infinite 0.2s' }} />
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-gold)', opacity: 0.4, animation: 'pulse 1s infinite 0.4s' }} />
-            <style>{'@keyframes pulse { 0%,100% { opacity:0.3 } 50% { opacity:1 } }'}</style>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
+    <div className="pi-page">
+      {/* Page header */}
+      <div className="pi-header">
+        <h1>Player Intelligence</h1>
+        <p>Search any player, explore profiles, or ask analytics questions in natural language</p>
       </div>
 
-      {/* Input bar - fixed at bottom */}
-      <div style={{ position: 'relative', padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-        {/* Search results dropdown (above input) */}
-        {searchResults.length > 0 && focused && (
-          <div style={{
-            position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 4,
-            background: 'var(--bg-card)', border: '1px solid var(--border-light)',
-            borderRadius: 12, overflow: 'hidden', zIndex: 100, boxShadow: '0 -10px 30px rgba(0,0,0,0.4)'
-          }}>
-            {searchResults.slice(0, 6).map(function(p, i) {
-              return (
-                <div key={p} className="result-item"
-                  onClick={function() { onSelectPlayer(p); setQuery('') }}
-                  style={{
-                    padding: '10px 16px', cursor: 'pointer',
-                    borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none',
-                    display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-primary)', transition: 'background 0.15s'
-                  }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-muted)' }}>
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-                  </svg>
-                  {p}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: 'var(--bg-card)', border: '1px solid ' + (focused ? 'var(--accent-gold)' : 'var(--border-light)'),
-          borderRadius: 14, padding: '12px 16px', transition: 'border 0.2s, box-shadow 0.2s',
-          boxShadow: focused ? '0 0 20px rgba(245,158,11,0.1)' : 'none'
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+      {/* Search bar — sticky at top */}
+      <div className="pi-search-wrapper" style={{ position: 'relative' }}>
+        <div className={'pi-search-bar' + (focused ? ' focused' : '')}>
+          <svg className="pi-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
@@ -790,28 +667,124 @@ function ChatInterface({ onSelectPlayer }) {
             onBlur={function() { setTimeout(function() { setFocused(false) }, 200) }}
             onKeyDown={handleKey}
             placeholder="Search a player or ask a question..."
-            style={{
-              flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              fontSize: 15, color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif'
-            }}
           />
           {query && (
-            <button onClick={function() { setQuery('') }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>✕</button>
+            <button className="pi-clear-btn" onClick={function() { setQuery('') }}>✕</button>
           )}
-          <button onClick={handleSubmit}
-            style={{
-              background: query.trim() ? 'var(--accent-gold)' : 'var(--bg-secondary)',
-              border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer',
-              color: query.trim() ? '#000' : 'var(--text-muted)', fontWeight: 700, fontSize: 12,
-              transition: 'all 0.2s', letterSpacing: 0.5
-            }}>
+          <button className={'pi-submit-btn' + (query.trim() ? ' active' : '')} onClick={handleSubmit}>
             ASK
           </button>
         </div>
-        <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
+
+        {/* Search results dropdown — below the search bar */}
+        {searchResults.length > 0 && focused && (
+          <div className="pi-search-dropdown">
+            {searchResults.slice(0, 6).map(function(p, i) {
+              return (
+                <div key={p} className="pi-dropdown-item"
+                  onClick={function() { onSelectPlayer(p); setQuery('') }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-muted)' }}>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                  {p}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <div className="pi-search-hint">
           Search any player by name · Ask analytics like "Kohli runs per season" · Try "compare" or "top 10"
         </div>
       </div>
+
+      {/* ── Landing content (shown when no queries yet) ── */}
+      {isEmpty && (
+        <div className="pi-landing page-enter">
+
+          {/* Popular Players — cards with photos */}
+          <div>
+            <div className="pi-section-label">Popular Players</div>
+            <div className="pi-player-grid">
+              {SUGGESTED.map(function(p) {
+                return (
+                  <div key={p} className="pi-player-card" onClick={function() { onSelectPlayer(p) }}>
+                    <div className="pi-player-photo">
+                      {PLAYER_PHOTOS[p] ? (
+                        <img src={PLAYER_PHOTOS[p]} alt={p} />
+                      ) : (
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="pi-player-name">{p}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Ask Intel — query suggestions */}
+          <div>
+            <div className="pi-section-label">Ask Intel</div>
+            <div className="pi-query-pills">
+              {QUERY_SUGGESTIONS.slice(0, 8).map(function(q) {
+                return (
+                  <button key={q} className="pi-query-pill" onClick={function() { handleSuggestion(q) }}>
+                    {q}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Stats bar */}
+          <div className="pi-stats-bar">
+            {[['761', 'PLAYERS'], ['278K+', 'DELIVERIES'], ['18', 'SEASONS'], ['2008–2025', 'COVERAGE']].map(function(item) {
+              return (
+                <div key={item[1]} className="pi-stat-item">
+                  <div className="pi-stat-value">{item[0]}</div>
+                  <div className="pi-stat-label">{item[1]}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Results feed (shown when queries exist) ── */}
+      {!isEmpty && (
+        <div className="pi-results-feed">
+          {messages.map(function(msg, i) {
+            if (msg.type === 'query') {
+              return (
+                <div key={i} className="pi-query-bubble">
+                  <div className="pi-query-bubble-inner">{msg.text}</div>
+                </div>
+              )
+            }
+            if (msg.type === 'chart') {
+              return (
+                <div key={i} className="pi-chart-result">
+                  <QueryChart result={msg.data} onPlayerClick={onSelectPlayer} />
+                </div>
+              )
+            }
+            return null
+          })}
+
+          {loading && (
+            <div className="pi-loading-dots">
+              <div className="pi-loading-dot" />
+              <div className="pi-loading-dot" />
+              <div className="pi-loading-dot" />
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      )}
     </div>
   )
 }
@@ -834,7 +807,6 @@ function PlayerProfile({ playerName, onBack }) {
   }, [playerName])
 
   const teamColor = player ? (TEAM_COLORS[player.franchise] || 'var(--accent-gold)') : 'var(--accent-gold)'
-  // const cricInfoId = CRICINFO_IDS[playerName]
   const photoUrl = PLAYER_PHOTOS[playerName] || null
   console.log('playerName:', playerName, 'photoUrl:', photoUrl)
   const franchiseAbbr = player && player.franchise ? (TEAM_ABBR[player.franchise] || player.franchise.slice(0, 4)) : ''
@@ -1029,13 +1001,13 @@ function PlayerProfile({ playerName, onBack }) {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — now includes Prediction */}
       <div style={{
         display: 'flex', gap: '4px', marginBottom: '20px',
         background: 'var(--bg-secondary)', borderRadius: '10px',
         padding: '4px', width: 'fit-content'
       }}>
-        {[['overview', 'Overview'], ['venues', 'Venues']].map(function(item) {
+        {[['overview', 'Overview'], ['venues', 'Venues'], ['prediction', 'Prediction']].map(function(item) {
           const isActive = activeTab === item[0]
           return (
             <button key={item[0]} className="tab-btn" onClick={function() { setActiveTab(item[0]) }}
