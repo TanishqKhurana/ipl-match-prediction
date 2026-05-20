@@ -441,10 +441,126 @@ function QueryChart({ result, onPlayerClick }) {
           </ScatterChart>
         </ResponsiveContainer>
       )}
+      {/* Matchup Card */}
+      {chart_type === 'matchup_card' && (function() {
+        var insights = result.insights || []
+        var season_data = result.season_data || []
+        return (
+          <div>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16, fontSize: 12, color: 'var(--text-muted)' }}>
+              <span style={{ padding: '4px 10px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 6, color: '#f59e0b' }}>{result.bat_type || 'Batter'}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 16 }}>vs</span>
+              <span style={{ padding: '4px 10px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 6, color: '#818cf8' }}>{result.bowl_type || 'Bowler'}</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 10, marginBottom: 16 }}>
+              {data.map(function(item, i) {
+                return (
+                  <div key={i} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: 12, textAlign: 'center', borderTop: '2px solid ' + CHART_COLORS[i % CHART_COLORS.length] }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: CHART_COLORS[i % CHART_COLORS.length], fontFamily: 'Rajdhani, sans-serif' }}>{item.value}</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 0.5, marginTop: 3 }}>{item.metric}</div>
+                  </div>
+                )
+              })}
+            </div>
+            {insights.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                {insights.map(function(ins, i) {
+                  return (
+                    <div key={i} style={{ padding: '8px 12px', marginBottom: 4, background: i === 0 ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.02)', borderRadius: 6, fontSize: 12, color: i === 0 ? 'var(--accent-gold)' : 'var(--text-secondary)', borderLeft: '3px solid ' + (i === 0 ? 'var(--accent-gold)' : 'var(--border)') }}>
+                      {ins}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {season_data.length > 1 && (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1, fontFamily: 'DM Mono, monospace' }}>SEASON BREAKDOWN</div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={season_data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="season" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                    <Tooltip content={CustomTooltip} />
+                    <Bar dataKey="value" name="Runs" radius={[3, 3, 0, 0]} fill="#f59e0b" fillOpacity={0.8} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Vs Type Card (spin/pace/hand) */}
+      {chart_type === 'vs_type_card' && (function() {
+        var insights = result.insights || []
+        var comparison = result.comparison || []
+        var sub = result.sub_breakdown || []
+        var tl = result.type_label || ''
+        var ol = result.other_label || ''
+        return (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 10, marginBottom: 16 }}>
+              {data.map(function(item, i) {
+                return (
+                  <div key={i} style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: 12, textAlign: 'center', borderTop: '2px solid ' + CHART_COLORS[i % CHART_COLORS.length] }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: CHART_COLORS[i % CHART_COLORS.length], fontFamily: 'Rajdhani, sans-serif' }}>{item.value}</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 0.5, marginTop: 3 }}>{item.metric}</div>
+                  </div>
+                )
+              })}
+            </div>
+            {comparison.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1, fontFamily: 'DM Mono, monospace' }}>{tl.toUpperCase()} vs {ol.toUpperCase()} COMPARISON</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={comparison}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="category" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                    <Tooltip content={CustomTooltip} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey={tl} fill="#f59e0b" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey={ol} fill="#6366f1" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {sub.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1, fontFamily: 'DM Mono, monospace' }}>BY BOWLING SUB-TYPE</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {sub.map(function(s, i) {
+                    return (
+                      <div key={i} style={{ padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8, minWidth: 120, borderLeft: '3px solid ' + CHART_COLORS[i % CHART_COLORS.length] }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{s.type}</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: s.sr > 130 ? '#10b981' : s.sr < 100 ? '#f87171' : '#fbbf24', fontFamily: 'Rajdhani, sans-serif' }}>SR {s.sr}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{s.balls} balls · {s.dismissed} out</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {insights.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1, fontFamily: 'DM Mono, monospace' }}>INSIGHTS</div>
+                {insights.map(function(ins, i) {
+                  return (
+                    <div key={i} style={{ padding: '8px 12px', marginBottom: 4, background: 'rgba(99,102,241,0.06)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)', borderLeft: '3px solid #6366f1' }}>
+                      {ins}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
-
+        
 function ChatInterface({ onSelectPlayer }) {
   var messagesEndRef = useRef(null)
   var inputRef = useRef(null)
