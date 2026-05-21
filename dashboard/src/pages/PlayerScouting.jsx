@@ -452,7 +452,6 @@ export default function PlayerScouting() {
       {/* Empty state */}
       {!searched && (
         <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
           <div style={{ fontSize: '16px', marginBottom: '8px', color: 'var(--text-secondary)' }}>Configure your scouting requirements above</div>
           <div style={{ fontSize: '13px' }}>
             Select a player type, role, and bowling specialty to find the perfect addition to your squad

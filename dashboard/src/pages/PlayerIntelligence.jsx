@@ -135,17 +135,11 @@ const SUGGESTED = [
 function StatCard({ label, value, color }) {
   const c = color || 'var(--accent-gold)'
   return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: '10px', padding: '16px', textAlign: 'center',
-      borderTop: '2px solid ' + c
-    }}>
-      <div style={{ fontSize: '22px', fontWeight: 700, color: c, fontFamily: 'Rajdhani, sans-serif' }}>
+    <div className="pp-stat-card" style={{ borderTop: '2px solid ' + c }}>
+      <div className="value" style={{ color: c }}>
         {value !== undefined && value !== null ? value : '—'}
       </div>
-      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', letterSpacing: '1px' }}>
-        {label}
-      </div>
+      <div className="label">{label}</div>
     </div>
   )
 }
@@ -808,14 +802,12 @@ function PlayerProfile({ playerName, onBack }) {
 
   const teamColor = player ? (TEAM_COLORS[player.franchise] || 'var(--accent-gold)') : 'var(--accent-gold)'
   const photoUrl = PLAYER_PHOTOS[playerName] || null
-  console.log('playerName:', playerName, 'photoUrl:', photoUrl)
   const franchiseAbbr = player && player.franchise ? (TEAM_ABBR[player.franchise] || player.franchise.slice(0, 4)) : ''
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '16px' }}>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-        <div style={{ width: '40px', height: '40px', border: '3px solid var(--border)', borderTop: '3px solid var(--accent-gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div className="pp-loading">
+        <div className="pp-spinner" />
         <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Loading {playerName}...</div>
       </div>
     )
@@ -823,35 +815,21 @@ function PlayerProfile({ playerName, onBack }) {
 
   if (!player || player.error) {
     return (
-      <div style={{ textAlign: 'center', padding: '60px' }}>
-        <div style={{ fontSize: '32px', marginBottom: '16px', color: 'var(--text-muted)' }}>Player not found</div>
-        <button onClick={onBack} style={{ padding: '10px 24px', background: 'var(--accent-gold)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px' }}>
-          Back to Search
-        </button>
+      <div className="pp-error">
+        <div className="pp-error-title">Player not found</div>
+        <button onClick={onBack} className="pp-error-btn">Back to Search</button>
       </div>
     )
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <style>{`
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
-        .fu { animation: fadeUp 0.3s ease forwards; }
-        .back-btn:hover { background: var(--bg-secondary) !important; color: var(--text-primary) !important; }
-        .tab-btn:hover { opacity: 0.8; }
-      `}</style>
-
-      <button className="back-btn" onClick={onBack} style={{
-        display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '20px',
-        background: 'transparent', border: '1px solid var(--border)', borderRadius: '8px',
-        padding: '7px 14px', cursor: 'pointer', color: 'var(--text-secondary)',
-        fontSize: '13px', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.18s'
-      }}>
+    <div className="pp-container">
+      <button className="pp-back-btn" onClick={onBack}>
         &larr; Back to Search
       </button>
 
       {/* Hero Card */}
-      <div className="fu" style={{
+      <div className="pp-fade-up" style={{
         background: 'var(--bg-card)', border: '1px solid var(--border)',
         borderRadius: '16px', marginBottom: '20px',
         borderTop: '3px solid ' + teamColor, overflow: 'hidden'
@@ -1001,23 +979,13 @@ function PlayerProfile({ playerName, onBack }) {
         )}
       </div>
 
-      {/* Tabs — now includes Prediction */}
-      <div style={{
-        display: 'flex', gap: '4px', marginBottom: '20px',
-        background: 'var(--bg-secondary)', borderRadius: '10px',
-        padding: '4px', width: 'fit-content'
-      }}>
-        {[['overview', 'Overview'], ['venues', 'Venues'], ['prediction', 'Prediction']].map(function(item) {
-          const isActive = activeTab === item[0]
+      {/* Tabs */}
+      <div className="pp-tabs">
+        {[['overview', 'Overview'], ['venues', 'Venues'],].map(function(item) {
           return (
-            <button key={item[0]} className="tab-btn" onClick={function() { setActiveTab(item[0]) }}
-              style={{
-                padding: '8px 20px', borderRadius: '7px', border: 'none',
-                cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                fontFamily: 'DM Sans, sans-serif', transition: 'all 0.18s',
-                background: isActive ? 'var(--accent-gold)' : 'transparent',
-                color: isActive ? '#000' : 'var(--text-muted)'
-              }}>
+            <button key={item[0]}
+              className={'pp-tab' + (activeTab === item[0] ? ' active' : '')}
+              onClick={function() { setActiveTab(item[0]) }}>
               {item[1]}
             </button>
           )
@@ -1026,7 +994,7 @@ function PlayerProfile({ playerName, onBack }) {
 
       {/* OVERVIEW */}
       {activeTab === 'overview' && (
-        <div className="fu" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="pp-fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
           {player.batting && (
             <div>
@@ -1057,8 +1025,8 @@ function PlayerProfile({ playerName, onBack }) {
           )}
 
           <div>
-            <SectionTitle>{player.isBowler ? 'WICKETS PER SEASON' : 'RUNS PER SEASON'}</SectionTitle>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px' }}>
+            <div className="pp-chart-card">
+              <div className="pp-chart-header">{player.isBowler ? 'WICKETS PER SEASON' : 'RUNS PER SEASON'}</div>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={player.seasonStats} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -1076,22 +1044,24 @@ function PlayerProfile({ playerName, onBack }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               {player.phaseStats && player.phaseStats.map(function(p, i) {
                 const colors = ['var(--accent-gold)', 'var(--accent-blue)', 'var(--accent-red)']
-                const val = player.isBowler ? p.economy : p.sr
-                const sub = player.isBowler ? (p.wickets + ' wickets') : (p.runs + ' runs')
+                const mainVal = player.isBowler ? p.economy : p.sr
+                const mainLabel = player.isBowler ? 'ECONOMY' : 'STRIKE RATE'
+                const subVal = player.isBowler ? p.wickets : p.runs
+                const subLabel = player.isBowler ? 'WICKETS' : 'RUNS'
                 return (
-                  <div key={i} style={{
-                    background: 'var(--bg-card)', border: '1px solid var(--border)',
-                    borderRadius: '10px', padding: '20px', textAlign: 'center',
-                    borderTop: '2px solid ' + colors[i]
-                  }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '2px', marginBottom: '8px', fontFamily: 'DM Mono, monospace' }}>
-                      {p.phase ? p.phase.toUpperCase() : ''}
+                  <div key={i} className="pp-phase-card" style={{ borderTop: '2px solid ' + colors[i] }}>
+                    <div className="phase-name">{p.phase ? p.phase.toUpperCase() : ''}</div>
+                    <div className="phase-stats-row">
+                      <div>
+                        <div className="phase-value" style={{ color: colors[i] }}>{mainVal}</div>
+                        <div className="phase-label">{mainLabel}</div>
+                      </div>
+                      <div className="phase-divider" style={{ background: colors[i] }} />
+                      <div>
+                        <div className="phase-value" style={{ color: colors[i] }}>{subVal}</div>
+                        <div className="phase-label">{subLabel}</div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '32px', fontWeight: 700, color: colors[i], fontFamily: 'Rajdhani, sans-serif' }}>{val}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {player.isBowler ? 'Economy Rate' : 'Strike Rate'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>{sub}</div>
                   </div>
                 )
               })}
@@ -1102,7 +1072,7 @@ function PlayerProfile({ playerName, onBack }) {
 
       {/* VENUES */}
       {activeTab === 'venues' && (
-          <div className="fu" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="pp-fadeup" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <SectionTitle>CURRENT SEASON VENUES · RANKED</SectionTitle>
           {player.venueStats && player.venueStats.length > 0 ? (
             player.venueStats.map(function(v, i) {
@@ -1185,88 +1155,6 @@ function PlayerProfile({ playerName, onBack }) {
           ) : (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
               No venue data available
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* PREDICTION */}
-      {activeTab === 'prediction' && (
-        <div className="fu" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {player.prediction ? (
-            <>
-              <SectionTitle>NEXT MATCH PERFORMANCE PREDICTION</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                <div style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  borderRadius: '14px', padding: '28px', borderTop: '3px solid var(--accent-gold)'
-                }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '2px', marginBottom: '8px', fontFamily: 'DM Mono, monospace' }}>
-                    PREDICTED RUNS
-                  </div>
-                  <div style={{ fontSize: '72px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif', color: 'var(--accent-gold)', lineHeight: 1 }}>
-                    {player.prediction.predicted}
-                  </div>
-                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '10px' }}>
-                    Range: {player.prediction.lower} &ndash; {player.prediction.upper} runs
-                  </div>
-                  <div style={{ marginTop: '16px', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', borderRadius: '4px',
-                      background: 'linear-gradient(to right, var(--accent-red), var(--accent-gold), var(--accent-green))',
-                      width: Math.min(100, player.prediction.predicted / 80 * 100) + '%',
-                      transition: 'width 0.8s ease'
-                    }} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {[
-                    ['P(Duck)', player.prediction.probDuck + '%', 'var(--accent-red)'],
-                    ['P(30+ runs)', player.prediction.prob30 + '%', 'var(--accent-gold)'],
-                    ['P(50+ runs)', player.prediction.prob50 + '%', 'var(--accent-green)'],
-                  ].map(function(item) {
-                    return (
-                      <div key={item[0]} style={{
-                        background: 'var(--bg-card)', border: '1px solid var(--border)',
-                        borderRadius: '10px', padding: '14px 18px',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                      }}>
-                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{item[0]}</span>
-                        <span style={{ fontSize: '22px', fontWeight: 700, color: item[2], fontFamily: 'Rajdhani, sans-serif' }}>{item[1]}</span>
-                      </div>
-                    )
-                  })}
-                  <div style={{
-                    background: player.prediction.prob30 > 50 ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
-                    border: '1px solid ' + (player.prediction.prob30 > 50 ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'),
-                    borderRadius: '10px', padding: '14px 18px', textAlign: 'center'
-                  }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '2px', marginBottom: '6px', fontFamily: 'DM Mono, monospace' }}>
-                      RECOMMENDATION
-                    </div>
-                    <div style={{
-                      fontSize: '20px', fontWeight: 700, fontFamily: 'Rajdhani, sans-serif',
-                      color: player.prediction.prob30 > 50 ? 'var(--accent-green)' : 'var(--accent-gold)'
-                    }}>
-                      {player.prediction.prob30 > 50 ? 'PLAY' : player.prediction.prob30 > 35 ? 'CONSIDER' : 'RISK'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{
-                padding: '14px 18px', background: 'rgba(99,102,241,0.08)',
-                border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px',
-                fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6
-              }}>
-                <strong style={{ color: 'var(--accent-blue)' }}>Model:</strong> Gradient Boosting trained on 17,336 innings (IPL 2008-2025). Features include rolling form, venue history and opposition matchup data. Test MAE: 14.45 runs.
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '16px', marginBottom: '8px' }}>Batting predictions not applicable for specialist bowlers</div>
-              <div style={{ fontSize: '13px' }}>Bowling performance predictor coming soon</div>
             </div>
           )}
         </div>
